@@ -6,6 +6,9 @@ use std::io::{Read, Seek, SeekFrom};
 use std::io::Write;
 use image::{GrayImage};
 
+use std::io::{BufWriter};
+use byteorder::{BigEndian, WriteBytesExt};
+
 const REMARKABLE_WIDTH: u32 = 1404;
 const REMARKABLE_HEIGHT: u32 = 1872;
 const REMARKABLE_BYTES_PER_PIXEL: usize = 2;
@@ -14,7 +17,7 @@ fn main() -> Result<()> {
     let screenshot_data = take_screenshot()?;
 
     // Save the PNG image to a file
-    let png_filename = "screenshot.png";
+    let png_filename = "tmp/screenshot.png";
     let mut png_file = File::create(png_filename)?;
     png_file.write_all(&screenshot_data)?;
     println!("PNG image saved to {}", png_filename);
@@ -22,7 +25,7 @@ fn main() -> Result<()> {
     let base64_image = general_purpose::STANDARD.encode(&screenshot_data);
 
     // Save the base64 encoded image to a file
-    let base64_filename = "screenshot_base64.txt";
+    let base64_filename = "tmp/screenshot_base64.txt";
     let mut base64_file = File::create(base64_filename)?;
     base64_file.write_all(base64_image.as_bytes())?;
     println!("Base64 encoded image saved to {}", base64_filename);
@@ -132,23 +135,43 @@ fn read_framebuffer(pid: &str, skip_bytes: u64) -> Result<Vec<u8>> {
 
 fn process_image(data: Vec<u8>) -> Result<Vec<u8>> {
     // Implement image processing here (transpose, color correction, etc.)
-    // For now, we'll just return the raw data
-    Ok(data)
+    // For now, we'll just encode the raw data to PNG
+    encode_png(&data)
 }
 
+
+
 fn encode_png(raw_data: &[u8]) -> Result<Vec<u8>> {
+    // Write raw data as 16-bit PGM file for inspection
+    let pgm_filename = "raw_screenshot.pgm";
+    let pgm_file = File::create(pgm_filename)?;
+    let mut writer = BufWriter::new(pgm_file);
+
+    writeln!(writer, "P5")?;
+    writeln!(writer, "{} {}", REMARKABLE_WIDTH, REMARKABLE_HEIGHT)?;
+    writeln!(writer, "65535")?;
+
+    for chunk in raw_data.chunks_exact(2) {
+        let value = u16::from_le_bytes([chunk[0], chunk[1]]);
+        writer.write_u16::<BigEndian>(value)?;
+    }
+    writer.flush()?;
+    println!("16-bit raw grayscale data saved as PGM to {}", pgm_filename);
+
+    // Proceed with PNG encoding (you may need to adjust this part as well)
     let img = GrayImage::from_raw(REMARKABLE_WIDTH, REMARKABLE_HEIGHT, raw_data.to_vec())
         .ok_or_else(|| anyhow::anyhow!("Failed to create image from raw data"))?;
 
     let mut png_data = Vec::new();
-    let encoder = image::codecs::png::PngEncoder::new(&mut png_data);
+    let mut encoder = image::codecs::png::PngEncoder::new(&mut png_data);
     encoder.encode(
         img.as_raw(),
         REMARKABLE_WIDTH,
         REMARKABLE_HEIGHT,
-        image::ColorType::L8,
+        image::ColorType::L16,
     )?;
 
     Ok(png_data)
 }
+
 

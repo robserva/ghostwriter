@@ -8,12 +8,22 @@ use image::{GrayImage};
 
 use std::io::{BufWriter};
 use byteorder::{BigEndian, WriteBytesExt};
+use clap::Parser;
 
 const REMARKABLE_WIDTH: u32 = 1404;
 const REMARKABLE_HEIGHT: u32 = 1872;
 const REMARKABLE_BYTES_PER_PIXEL: usize = 2;
 
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    #[arg(short, long)]
+    no_submit: bool,
+}
+
 fn main() -> Result<()> {
+    let args = Args::parse();
+
     let screenshot_data = take_screenshot()?;
 
     // Save the PNG image to a file
@@ -29,6 +39,11 @@ fn main() -> Result<()> {
     let mut base64_file = File::create(base64_filename)?;
     base64_file.write_all(base64_image.as_bytes())?;
     println!("Base64 encoded image saved to {}", base64_filename);
+
+    if args.no_submit {
+        println!("Image not submitted to OpenAI due to --no-submit flag");
+        return Ok(());
+    }
 
     let api_key = std::env::var("OPENAI_API_KEY")?;
     let body = json!({
@@ -75,8 +90,7 @@ fn main() -> Result<()> {
         Err(e) => return Err(anyhow::anyhow!("Request failed: {}", e)),
     }
     Ok(())
-}
-use std::process::Command;
+}use std::process::Command;
 
 const WIDTH: usize = 1872;
 const HEIGHT: usize = 1404;
@@ -143,7 +157,7 @@ fn process_image(data: Vec<u8>) -> Result<Vec<u8>> {
 
 fn encode_png(raw_data: &[u8]) -> Result<Vec<u8>> {
     // Write raw data as 16-bit PGM file for inspection
-    let pgm_filename = "raw_screenshot.pgm";
+    let pgm_filename = "tmp/screenshot_raw.pgm";
     let pgm_file = File::create(pgm_filename)?;
     let mut writer = BufWriter::new(pgm_file);
 
@@ -152,7 +166,7 @@ fn encode_png(raw_data: &[u8]) -> Result<Vec<u8>> {
     writeln!(writer, "65535")?;
 
     for chunk in raw_data.chunks_exact(2) {
-        let value = u16::from_le_bytes([chunk[0], chunk[1]]);
+        let value = u16::from_be_bytes([chunk[0], chunk[1]]);
         writer.write_u16::<BigEndian>(value)?;
     }
     writer.flush()?;

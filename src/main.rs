@@ -1,14 +1,14 @@
 use anyhow::Result;
 use base64::{engine::general_purpose, Engine as _};
+use image::GrayImage;
 use serde_json::json;
 use std::fs::File;
-use std::io::{Read, Seek, SeekFrom};
 use std::io::Write;
-use image::{GrayImage};
+use std::io::{Read, Seek, SeekFrom};
 
-use std::io::{BufWriter};
 use byteorder::{BigEndian, WriteBytesExt};
 use clap::Parser;
+use std::io::BufWriter;
 
 const REMARKABLE_WIDTH: u32 = 1404;
 const REMARKABLE_HEIGHT: u32 = 1872;
@@ -77,7 +77,7 @@ fn main() -> Result<()> {
         Ok(response) => {
             let json: serde_json::Value = response.into_json()?;
             println!("API Response: {}", json);
-        },
+        }
         Err(ureq::Error::Status(code, response)) => {
             println!("HTTP Error: {} {}", code, response.status_text());
             if let Ok(json) = response.into_json::<serde_json::Value>() {
@@ -86,11 +86,12 @@ fn main() -> Result<()> {
                 println!("Failed to parse error response as JSON");
             }
             return Err(anyhow::anyhow!("API request failed"));
-        },
+        }
         Err(e) => return Err(anyhow::anyhow!("Request failed: {}", e)),
     }
     Ok(())
-}use std::process::Command;
+}
+use std::process::Command;
 
 const WIDTH: usize = 1872;
 const HEIGHT: usize = 1404;
@@ -114,9 +115,7 @@ fn take_screenshot() -> Result<Vec<u8>> {
 }
 
 fn find_xochitl_pid() -> Result<String> {
-    let output = Command::new("pidof")
-        .arg("xochitl")
-        .output()?;
+    let output = Command::new("pidof").arg("xochitl").output()?;
     let pids = String::from_utf8(output.stdout)?;
     for pid in pids.split_whitespace() {
         let has_fb = Command::new("grep")
@@ -132,7 +131,10 @@ fn find_xochitl_pid() -> Result<String> {
 fn find_framebuffer_address(pid: &str) -> Result<u64> {
     let output = Command::new("sh")
         .arg("-c")
-        .arg(format!("grep -C1 '/dev/fb0' /proc/{}/maps | tail -n1 | sed 's/-.*$//'", pid))
+        .arg(format!(
+            "grep -C1 '/dev/fb0' /proc/{}/maps | tail -n1 | sed 's/-.*$//'",
+            pid
+        ))
         .output()?;
     let address_hex = String::from_utf8(output.stdout)?.trim().to_string();
     let address = u64::from_str_radix(&address_hex, 16)?;
@@ -153,19 +155,21 @@ fn process_image(data: Vec<u8>) -> Result<Vec<u8>> {
     encode_png(&data)
 }
 
-
-
 use image::{ImageBuffer, Luma};
 
 fn encode_png(raw_data: &[u8]) -> Result<Vec<u8>> {
-
-        // Convert raw data to 16-bit values
-        let raw_u8: Vec<u8> = raw_data.chunks_exact(2)
+    // Convert raw data to 16-bit values
+    let raw_u8: Vec<u8> = raw_data
+        .chunks_exact(2)
         .map(|chunk| u8::from_le_bytes([chunk[1]]))
         .collect();
 
-    let img = GrayImage::from_raw(REMARKABLE_HEIGHT as u32, REMARKABLE_WIDTH as u32, raw_u8.to_vec())
-        .ok_or_else(|| anyhow::anyhow!("Failed to create image from raw data"))?;
+    let img = GrayImage::from_raw(
+        REMARKABLE_HEIGHT as u32,
+        REMARKABLE_WIDTH as u32,
+        raw_u8.to_vec(),
+    )
+    .ok_or_else(|| anyhow::anyhow!("Failed to create image from raw data"))?;
 
     let mut png_data = Vec::new();
     let mut encoder = image::codecs::png::PngEncoder::new(&mut png_data);
@@ -173,7 +177,7 @@ fn encode_png(raw_data: &[u8]) -> Result<Vec<u8>> {
         img.as_raw(),
         REMARKABLE_HEIGHT as u32,
         REMARKABLE_WIDTH as u32,
-        image::ColorType::L8
+        image::ColorType::L8,
     )?;
 
     Ok(png_data)
@@ -190,4 +194,3 @@ fn apply_curves(value: u16) -> u16 {
     };
     (adjusted * 65535.0) as u16
 }
-

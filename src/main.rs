@@ -158,33 +158,39 @@ fn process_image(data: Vec<u8>) -> Result<Vec<u8>> {
 use image::{ImageBuffer, Luma};
 
 fn encode_png(raw_data: &[u8]) -> Result<Vec<u8>> {
-    // Convert raw data to 16-bit values
-    let raw_u8: Vec<u8> = raw_data
-        .chunks_exact(2)
+    let raw_u8: Vec<u8> = raw_data.chunks_exact(2)
         .map(|chunk| u8::from_le_bytes([chunk[1]]))
         .collect();
 
-    let img = GrayImage::from_raw(
-        REMARKABLE_HEIGHT as u32,
-        REMARKABLE_WIDTH as u32,
-        raw_u8.to_vec(),
-    )
-    .ok_or_else(|| anyhow::anyhow!("Failed to create image from raw data"))?;
+    let mut processed = vec![0u8; (REMARKABLE_WIDTH * REMARKABLE_HEIGHT) as usize];
+
+    for y in 0..REMARKABLE_HEIGHT {
+        for x in 0..REMARKABLE_WIDTH {
+            // let src_idx = y * REMARKABLE_WIDTH + x;
+            // let dst_idx = x * REMARKABLE_HEIGHT + (REMARKABLE_HEIGHT - 1 - y);
+            let src_idx = (REMARKABLE_HEIGHT - 1 - y) + (REMARKABLE_WIDTH - 1 - x) * REMARKABLE_HEIGHT;
+            let dst_idx = y * REMARKABLE_WIDTH + x;
+            processed[dst_idx as usize] = apply_curves(raw_u8[src_idx as usize]);
+        }
+    }
+
+    let img = GrayImage::from_raw(REMARKABLE_WIDTH as u32, REMARKABLE_HEIGHT as u32, processed)
+        .ok_or_else(|| anyhow::anyhow!("Failed to create image from raw data"))?;
 
     let mut png_data = Vec::new();
     let mut encoder = image::codecs::png::PngEncoder::new(&mut png_data);
     encoder.encode(
         img.as_raw(),
-        REMARKABLE_HEIGHT as u32,
         REMARKABLE_WIDTH as u32,
-        image::ColorType::L8,
+        REMARKABLE_HEIGHT as u32,
+        image::ColorType::L8
     )?;
 
     Ok(png_data)
 }
 
-fn apply_curves(value: u16) -> u16 {
-    let normalized = value as f32 / 65535.0;
+fn apply_curves(value: u8) -> u8 {
+    let normalized = value as f32 / 255.0;
     let adjusted = if normalized < 0.045 {
         0.0
     } else if normalized < 0.06 {
@@ -192,5 +198,5 @@ fn apply_curves(value: u16) -> u16 {
     } else {
         1.0
     };
-    (adjusted * 65535.0) as u16
+    (adjusted * 255.0) as u8
 }

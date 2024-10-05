@@ -4,15 +4,15 @@ use image::GrayImage;
 use serde_json::json;
 use std::fs::File;
 use std::io::Write;
-use std::io::{Read, Seek, SeekFrom};
+use std::io::{Read, Seek};
 
-use byteorder::{BigEndian, WriteBytesExt};
+
 use clap::Parser;
-use std::io::BufWriter;
+
 
 const REMARKABLE_WIDTH: u32 = 1404;
 const REMARKABLE_HEIGHT: u32 = 1872;
-const REMARKABLE_BYTES_PER_PIXEL: usize = 2;
+
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -155,7 +155,7 @@ fn process_image(data: Vec<u8>) -> Result<Vec<u8>> {
     encode_png(&data)
 }
 
-use image::{ImageBuffer, Luma};
+use image;
 
 fn encode_png(raw_data: &[u8]) -> Result<Vec<u8>> {
     let raw_u8: Vec<u8> = raw_data.chunks_exact(2)
@@ -178,7 +178,7 @@ fn encode_png(raw_data: &[u8]) -> Result<Vec<u8>> {
         .ok_or_else(|| anyhow::anyhow!("Failed to create image from raw data"))?;
 
     let mut png_data = Vec::new();
-    let mut encoder = image::codecs::png::PngEncoder::new(&mut png_data);
+    let encoder = image::codecs::png::PngEncoder::new(&mut png_data);
     encoder.encode(
         img.as_raw(),
         REMARKABLE_WIDTH as u32,

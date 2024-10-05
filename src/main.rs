@@ -155,37 +155,39 @@ fn process_image(data: Vec<u8>) -> Result<Vec<u8>> {
 
 
 
+use image::{ImageBuffer, Luma};
+
 fn encode_png(raw_data: &[u8]) -> Result<Vec<u8>> {
-    // Write raw data as 16-bit PGM file for inspection
-    let pgm_filename = "tmp/screenshot_raw.pgm";
-    let pgm_file = File::create(pgm_filename)?;
-    let mut writer = BufWriter::new(pgm_file);
 
-    writeln!(writer, "P5")?;
-    writeln!(writer, "{} {}", REMARKABLE_WIDTH, REMARKABLE_HEIGHT)?;
-    writeln!(writer, "65535")?;
+        // Convert raw data to 16-bit values
+        let raw_u8: Vec<u8> = raw_data.chunks_exact(2)
+        .map(|chunk| u8::from_le_bytes([chunk[1]]))
+        .collect();
 
-    for chunk in raw_data.chunks_exact(2) {
-        let value = u16::from_be_bytes([chunk[0], chunk[1]]);
-        writer.write_u16::<BigEndian>(value)?;
-    }
-    writer.flush()?;
-    println!("16-bit raw grayscale data saved as PGM to {}", pgm_filename);
-
-    // Proceed with PNG encoding (you may need to adjust this part as well)
-    let img = GrayImage::from_raw(REMARKABLE_WIDTH, REMARKABLE_HEIGHT, raw_data.to_vec())
+    let img = GrayImage::from_raw(REMARKABLE_HEIGHT as u32, REMARKABLE_WIDTH as u32, raw_u8.to_vec())
         .ok_or_else(|| anyhow::anyhow!("Failed to create image from raw data"))?;
 
     let mut png_data = Vec::new();
     let mut encoder = image::codecs::png::PngEncoder::new(&mut png_data);
     encoder.encode(
         img.as_raw(),
-        REMARKABLE_WIDTH,
-        REMARKABLE_HEIGHT,
-        image::ColorType::L16,
+        REMARKABLE_HEIGHT as u32,
+        REMARKABLE_WIDTH as u32,
+        image::ColorType::L8
     )?;
 
     Ok(png_data)
 }
 
+fn apply_curves(value: u16) -> u16 {
+    let normalized = value as f32 / 65535.0;
+    let adjusted = if normalized < 0.045 {
+        0.0
+    } else if normalized < 0.06 {
+        (normalized - 0.045) / (0.06 - 0.045)
+    } else {
+        1.0
+    };
+    (adjusted * 65535.0) as u16
+}
 

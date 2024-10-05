@@ -5,7 +5,7 @@ use serde_json::json;
 use std::fs::File;
 use std::io::Write;
 use std::io::{Read, Seek};
-
+use std::{thread, time};
 
 use clap::Parser;
 
@@ -39,6 +39,10 @@ fn main() -> Result<()> {
     let mut base64_file = File::create(base64_filename)?;
     base64_file.write_all(base64_image.as_bytes())?;
     println!("Base64 encoded image saved to {}", base64_filename);
+
+    // Example: Draw a simple line
+    // let points = vec![(100, 100), (200, 200), (300, 300)];
+    draw_on_screen()?;
 
     if args.no_submit {
         println!("Image not submitted to OpenAI due to --no-submit flag");
@@ -91,6 +95,7 @@ fn main() -> Result<()> {
     }
     Ok(())
 }
+
 use std::process::Command;
 
 const WIDTH: usize = 1872;
@@ -199,4 +204,77 @@ fn apply_curves(value: u8) -> u8 {
         1.0
     };
     (adjusted * 255.0) as u8
+}
+
+use evdev::{Device, InputEvent, EventType, InputEventKind};
+
+use std::os::unix::io::AsRawFd;
+
+fn draw_on_screen() -> Result<()> {
+    let mut device = Device::open("/dev/input/event1")?; // Pen input device
+    // let fd = device.as_raw_fd();
+
+// Event: time 1728138464.915414, type 1 (EV_KEY), code 330 (BTN_TOUCH), value 1
+// Event: time 1728138464.915414, type 3 (EV_ABS), code 0 (ABS_X), value 12035
+// Event: time 1728138464.915414, type 3 (EV_ABS), code 1 (ABS_Y), value 6173
+// Event: time 1728138464.915414, type 3 (EV_ABS), code 24 (ABS_PRESSURE), value 2630
+// then
+// Event: time 1728138465.349699, type 3 (EV_ABS), code 0 (ABS_X), value 9266
+// Event: time 1728138465.349699, type 3 (EV_ABS), code 1 (ABS_Y), value 8391
+// Event: time 1728138465.349699, type 3 (EV_ABS), code 24 (ABS_PRESSURE), value 1
+// Event: time 1728138465.349699, -------------- SYN_REPORT ------------
+// Event: time 1728138465.351558, type 1 (EV_KEY), code 330 (BTN_TOUCH), value 0
+// Event: time 1728138465.351558, type 3 (EV_ABS), code 24 (ABS_PRESSURE), value 0
+// Event: time 1728138465.351558, type 3 (EV_ABS), code 25 (ABS_DISTANCE), value 10
+
+
+    // Pen down
+    println!("Pen down");
+    device.send_events(&[
+        InputEvent::new(EventType::ABSOLUTE, 0, 12035),     // ABS_X
+        InputEvent::new(EventType::ABSOLUTE, 1, 6173),     // ABS_Y
+        InputEvent::new(EventType::KEY, 320, 1),         // BTN_TOOL_PEN
+        InputEvent::new(EventType::KEY, 330, 1),         // BTN_TOUCH
+        InputEvent::new(EventType::ABSOLUTE, 24, 2630),  // ABS_PRESSURE (max pressure)
+        InputEvent::new(EventType::ABSOLUTE, 25, 0),  // ABS_DISTANCE
+        InputEvent::new(EventType::SYNCHRONIZATION, 0, 0), // SYN_REPORT
+    ])?;
+
+    println!("Drawing...");
+    for x in 0..200 {
+        device.send_events(&[
+            // InputEvent::new(EventType::KEY, 330, 1),         // BTN_TOUCH
+            InputEvent::new(EventType::ABSOLUTE, 0, 12035 - (x * 10)),     // ABS_X
+            InputEvent::new(EventType::ABSOLUTE, 1, 6173),     // ABS_Y
+            // InputEvent::new(EventType::ABSOLUTE, 24, 2630),  // ABS_PRESSURE (max pressure)
+            // InputEvent::new(EventType::KEY, 330, 1),         // BTN_TOUCH
+            // InputEvent::new(EventType::SYNCHRONIZATION, 0, 0), // SYN_REPORT
+        ])?;
+        // thread::sleep(time::Duration::from_millis(10));
+    }
+
+    println!("Pen up");
+
+    device.send_events(&[
+        // InputEvent::new(EventType::ABSOLUTE, 0, 10000),     // ABS_X
+        // InputEvent::new(EventType::ABSOLUTE, 1, 6173),     // ABS_Y
+        // InputEvent::new(EventType::SYNCHRONIZATION, 0, 0), // SYN_REPORT
+        InputEvent::new(EventType::ABSOLUTE, 24, 0),  // ABS_PRESSURE (max pressure)
+        InputEvent::new(EventType::KEY, 330, 0),         // BTN_TOUCH
+        InputEvent::new(EventType::KEY, 320, 0),         // BTN_TOOL_PEN
+        InputEvent::new(EventType::ABSOLUTE, 25, 100),  // ABS_DISTANCE
+        InputEvent::new(EventType::SYNCHRONIZATION, 0, 0), // SYN_REPORT
+    ])?;
+
+    // Pen up
+    // device.send_events(&[
+    //     InputEvent::new(EventType::ABSOLUTE, 0x00, x),     // ABS_X
+    //     InputEvent::new(EventType::ABSOLUTE, 0x01, y),     // ABS_Y
+    //     InputEvent::new(EventType::ABSOLUTE, 0x18, 0),     // ABS_PRESSURE (no pressure)
+    //     InputEvent::new(EventType::KEY, 0x14a, 0),         // BTN_TOUCH
+    //     InputEvent::new(EventType::SYNCHRONIZATION, 0, 0), // SYN_REPORT
+    // ])?;
+    
+
+    Ok(())
 }

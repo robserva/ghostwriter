@@ -33,3 +33,15 @@ cargo install cross
 cross build --release --target=armv7-unknown-linux-gnueabihf
 
 scp target/armv7-unknown-linux-gnueabihf/release/ghostwriter remarkable:
+
+
+I got evtest by getting the ipkg from trotek and untaring it a few levels and then scping it over. Surprisingly it works!
+
+Now I can see that /dev/input/event1 is pen input and /dev/input/event2 is touch input
+
+You can detect distance. The value gets smaller as you get close to the screen with the tip of the pen or eraser
+
+  Event: time 1728139017.789746, type 3 (EV_ABS), code 25 (ABS_DISTANCE), value 105
+
+EV_KEY 320 (BTN_TOOL_PEN) is for pen presence/range
+EV_KEY 330 (BTN_TOUCH) is for actual drawing

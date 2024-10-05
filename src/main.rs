@@ -54,7 +54,7 @@ fn main() -> Result<()> {
                 "content": [
                     {
                         "type": "text",
-                        "text": "What's in this image?"
+                        "text": "You are a helpful assistant. You live inside of a remarkable2 notepad. Your input is the current state of the screen. Look at this screenshot and use it as your input. Respond in text; later we will figure out how to turn your responses into handwriting on the screen."
                     },
                     {
                         "type": "image_url",

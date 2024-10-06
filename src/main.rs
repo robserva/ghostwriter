@@ -9,6 +9,10 @@ use std::{thread, time};
 
 use clap::Parser;
 
+use resvg::usvg::{fontdb, Tree, Options};
+use resvg::tiny_skia::Pixmap;
+use resvg::render;
+use resvg::usvg;
 
 const REMARKABLE_WIDTH: u32 = 1404;
 const REMARKABLE_HEIGHT: u32 = 1872;
@@ -88,7 +92,7 @@ fn main() -> Result<()> {
                 "content": [
                     {
                         "type": "text",
-                        "text": "You are a helpful assistant. You live inside of a remarkable2 notepad, which has a 1404x1872 sized screen. Your input is the current content of the screen. Look at this content, interpret it, and respond to the content. The content will contain both handwritten notes and diagrams. Respond in the form of a JSON document which will explain the input, the output, and provide an actual svg, which we will draw onto the same screen, on top of the existing content."
+                        "text": "You are a helpful assistant. You live inside of a remarkable2 notepad, which has a 1404x1872 sized screen. Your input is the current content of the screen. Look at this content, interpret it, and respond to the content. The content will contain both handwritten notes and diagrams. Respond in the form of a JSON document which will explain the input, the output, and provide an actual svg, which we will draw onto the same screen, on top of the existing content.Use the `Noto Sans` font-family when you are showing text."
                     },
                     {
                         "type": "image_url",
@@ -117,6 +121,20 @@ fn main() -> Result<()> {
             let input_description = json_output["input_description"].as_str().unwrap();
             let output_description = json_output["output_description"].as_str().unwrap();
             let svg_data = json_output["svg"].as_str().unwrap();
+    let bitmap = svg_to_bitmap(svg_data, REMARKABLE_WIDTH as u32, REMARKABLE_HEIGHT as u32)?;
+    write_bitmap_to_file(&bitmap, "tmp/debug_bitmap.png")?;
+
+    // Open the device for drawing
+    let mut device = Device::open("/dev/input/event1")?;
+
+    // Iterate through the bitmap and draw dots where needed
+    for (y, row) in bitmap.iter().enumerate() {
+        for (x, &pixel) in row.iter().enumerate() {
+            if pixel {
+                draw_dot(&mut device, screen_to_input((x as i32, y as i32)))?;
+            }
+        }
+    }
 
             println!("Input Description: {}", input_description);
             println!("Output Description: {}", output_description);
@@ -336,6 +354,9 @@ fn draw_dot(device: &mut Device, (x, y): (i32, i32)) -> Result<()> {
         InputEvent::new(EventType::KEY, 320, 1),         // BTN_TOOL_PEN
         InputEvent::new(EventType::SYNCHRONIZATION, 0, 0), // SYN_REPORT
         ])?;
+
+        // sleep for 5ms
+        thread::sleep(time::Duration::from_millis(5));
     
     Ok(())
 }
@@ -378,5 +399,42 @@ fn draw_on_screen() -> Result<()> {
     }
     // draw_dot(&mut device, screen_to_input((1000, 1000)))?;
 
+    Ok(())
+}
+
+
+
+
+use std::sync::Arc;
+
+fn svg_to_bitmap(svg_data: &str, width: u32, height: u32) -> Result<Vec<Vec<bool>>> {
+    let mut opt = Options::default();
+    let mut fontdb = fontdb::Database::new();
+    fontdb.load_fonts_dir("/usr/share/fonts/ttf/noto");
+    opt.fontdb = Arc::new(fontdb);
+
+    let tree = Tree::from_str(svg_data, &opt)?;
+    let mut pixmap = Pixmap::new(width, height).unwrap();
+    render(&tree, usvg::Transform::default(), &mut pixmap.as_mut());
+
+    let bitmap = pixmap.pixels().chunks(width as usize)
+        .map(|row| row.iter().map(|p| p.alpha() > 128).collect())
+        .collect();
+
+    Ok(bitmap)
+}
+fn write_bitmap_to_file(bitmap: &Vec<Vec<bool>>, filename: &str) -> Result<()> {
+    let width = bitmap[0].len();
+    let height = bitmap.len();
+    let mut img = GrayImage::new(width as u32, height as u32);
+
+    for (y, row) in bitmap.iter().enumerate() {
+        for (x, &pixel) in row.iter().enumerate() {
+            img.put_pixel(x as u32, y as u32, image::Luma([if pixel { 0 } else { 255 }]));
+        }
+    }
+
+    img.save(filename)?;
+    println!("Bitmap saved to {}", filename);
     Ok(())
 }

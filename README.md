@@ -1,5 +1,8 @@
 ## **MAIN IDEA**
-A thing for my remarkable2 that watches what I write and, perhaps prompted either with a gesture or some on-screen content, can write back to me on the screen. Explore various ways of interacting through this handwriting+screen medium.
+> An experiment for the remarkable2 that watches what you write and, when prompted either with a gesture or some on-screen content, can write back to the screen. This is an exploration of various interacts through this handwriting+screen medium.
+
+<img src="docs/simple-chihuahua.jpg" width="400">
+<img src="docs/chihuahua-logo.png" width="400">
 
 ## Status
 * Basic proof of concept works!!!
@@ -31,18 +34,23 @@ A thing for my remarkable2 that watches what I write and, perhaps prompted eithe
 ## References
 * Adapted screen capture from [reSnap](https://github.com/cloudsftp/reSnap)
 
-## Scratch
+## Development
 
+```sh
+# Initial dependencies install (also ... rust)
 rustup target add armv7-unknown-linux-gnueabihf
 sudo apt-get install gcc-arm-linux-gnueabihf
-
-cargo build --release --target=armv7-unknown-linux-gnueabihf
-
-
 cargo install cross
+
+# Then to build
 cross build --release --target=armv7-unknown-linux-gnueabihf
 
+# And deploy by scp'ing the binary over and run it on the device!
 scp target/armv7-unknown-linux-gnueabihf/release/ghostwriter remarkable:
+```
+
+## Scratch
+
 
 
 I got evtest by getting the ipkg from trotek and untaring it a few levels and then scping it over. Surprisingly it works!

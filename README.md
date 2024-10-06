@@ -1,8 +1,8 @@
 ## **MAIN IDEA**
 > An experiment for the remarkable2 that watches what you write and, when prompted either with a gesture or some on-screen content, can write back to the screen. This is an exploration of various interacts through this handwriting+screen medium.
 
-<img src="docs/simple-chihuahua.jpg" width="400">
-<img src="docs/chihuahua-logo.png" width="400">
+<img src="docs/simple-chihuahua.jpg" width="300">
+<img src="docs/chihuahua-logo.png" width="300">
 
 ## Status
 * Basic proof of concept works!!!

@@ -213,29 +213,26 @@ use evdev::{Device, InputEvent, EventType, InputEventKind};
 use std::os::unix::io::AsRawFd;
 
 
-fn draw_line(mut device: Device, (x1, y1): (i32, i32), (x2, y2): (i32, i32)) -> Result<()> {
-    let mut min_x = x1;
-    let mut max_x = x2;
-    let mut adj_y1 = y1;
-    let mut adj_y2 = y2;
+fn draw_line(device: &mut Device, (x1, y1): (i32, i32), (x2, y2): (i32, i32)) -> Result<()> {
+    // println!("Drawing from ({}, {}) to ({}, {})", x1, y1, x2, y2);
 
-    if x1 <= x2 {
-        min_x = x1;
-        max_x = x2;
-        adj_y1 = y1;
-        adj_y2 = y2;
-    } else {
-        min_x = x2;
-        max_x = x1;
-        adj_y1 = y2;
-        adj_y2 = y1;
-    }
+    // We know this is a straight line
+    // So figure out the length
+    // Then divide it into enough steps to only go 10 units or so
+    // Start at x1, y1
+    // And then for each step add the right amount to x and y
 
-    let slope = (adj_y2 - adj_y1) as f32 / (max_x - min_x) as f32;
+    let length = ((x2 as f32 - x1 as f32).powf(2.0) + (y2 as f32 - y1 as f32).powf(2.0)).sqrt();
+    // 5.0 is the maximum distance between points
+    // If this is too small 
+    let steps = (length / 5.0).ceil() as i32;
+    let dx = (x2 - x1) / steps;
+    let dy = (y2 - y1) / steps;
+    // println!("Drawing from ({}, {}) to ({}, {}) in {} steps", x1, y1, x2, y2, steps);
 
     device.send_events(&[
-        InputEvent::new(EventType::ABSOLUTE, 0, min_x),     // ABS_X
-        InputEvent::new(EventType::ABSOLUTE, 1, adj_y1),     // ABS_Y
+        InputEvent::new(EventType::ABSOLUTE, 0, x1),     // ABS_X
+        InputEvent::new(EventType::ABSOLUTE, 1, y1),     // ABS_Y
 
         InputEvent::new(EventType::KEY, 320, 1),         // BTN_TOOL_PEN
         InputEvent::new(EventType::KEY, 330, 1),         // BTN_TOUCH
@@ -244,11 +241,9 @@ fn draw_line(mut device: Device, (x1, y1): (i32, i32), (x2, y2): (i32, i32)) -> 
         InputEvent::new(EventType::SYNCHRONIZATION, 0, 0), // SYN_REPORT
     ])?;
 
-
-    for x in (min_x..max_x).step_by(1) {
-        // let y = y1 + (y2 - y1) * (x - x1) / (x2 - x1);
-        // let y = y1 + (slope * (x - x1) as f32) as i32;
-        let y = adj_y1 + ((x - min_x) as f32 * slope).round() as i32;
+    for i in 0..steps {
+        let x = x1 + dx * i;
+        let y = y1 + dy * i;
         // println!("Drawing to point at ({}, {})", x, y);
         device.send_events(&[
             InputEvent::new(EventType::ABSOLUTE, 0, x),     // ABS_X
@@ -268,6 +263,42 @@ fn draw_line(mut device: Device, (x1, y1): (i32, i32), (x2, y2): (i32, i32)) -> 
     Ok(())
 }
 
+fn draw_dot(device: &mut Device, (x, y): (i32, i32)) -> Result<()> {
+    // println!("Drawing at ({}, {})", x, y);
+    device.send_events(&[
+
+        InputEvent::new(EventType::ABSOLUTE, 0, x),     // ABS_X
+        InputEvent::new(EventType::ABSOLUTE, 1, y),     // ABS_Y
+        InputEvent::new(EventType::KEY, 320, 1),         // BTN_TOOL_PEN
+        InputEvent::new(EventType::KEY, 330, 1),         // BTN_TOUCH
+        InputEvent::new(EventType::ABSOLUTE, 24, 2630),  // ABS_PRESSURE
+        InputEvent::new(EventType::ABSOLUTE, 25, 0),  // ABS_DISTANCE
+        InputEvent::new(EventType::SYNCHRONIZATION, 0, 0), // SYN_REPORT
+    ])?;
+
+        for n in 0..10 {
+         device.send_events(&[
+        
+        InputEvent::new(EventType::ABSOLUTE, 0, x+n),     // ABS_X
+        InputEvent::new(EventType::ABSOLUTE, 1, y+n),     // ABS_Y
+        InputEvent::new(EventType::SYNCHRONIZATION, 0, 0), // SYN_REPORT
+        ])?;
+        }
+
+        device.send_events(&[
+        InputEvent::new(EventType::ABSOLUTE, 24, 0),  // ABS_PRESSURE
+        InputEvent::new(EventType::ABSOLUTE, 25, 0),  // ABS_DISTANCE
+        InputEvent::new(EventType::SYNCHRONIZATION, 0, 0), // SYN_REPORT
+        
+        InputEvent::new(EventType::KEY, 330, 0),         // BTN_TOUCH
+        InputEvent::new(EventType::KEY, 320, 1),         // BTN_TOOL_PEN
+        InputEvent::new(EventType::SYNCHRONIZATION, 0, 0), // SYN_REPORT
+        ])?;
+    
+    Ok(())
+}
+
+
 fn screen_to_input((x, y): (i32, i32)) -> (i32, i32) {
     // Swap and normalize the coordinates
     let x_normalized = x as f32 / REMARKABLE_WIDTH as f32;
@@ -280,60 +311,30 @@ fn screen_to_input((x, y): (i32, i32)) -> (i32, i32) {
 
 
 fn draw_on_screen() -> Result<()> {
-    let device = Device::open("/dev/input/event1")?; // Pen input device
+    let mut device = Device::open("/dev/input/event1")?; // Pen input device
 
     // draw_line(device, (10035, 6173), (12000, 7173))?;
-
     // draw_line(device, (17396, 1530), (14401,9494))?;
-    draw_line(device, screen_to_input((200, 200)), screen_to_input((800,500)))?;
+    // draw_line(&mut device, screen_to_input((200, 200)), screen_to_input((800,500)))?;
+    // draw_line(&mut device, screen_to_input((200, 500)), screen_to_input((800,200)))?;
 
-    // Pen down
-    // println!("Pen down");
-    // device.send_events(&[
-    //     InputEvent::new(EventType::ABSOLUTE, 0, 12035),     // ABS_X
-    //     InputEvent::new(EventType::ABSOLUTE, 1, 6173),     // ABS_Y
-    //     InputEvent::new(EventType::KEY, 320, 1),         // BTN_TOOL_PEN
-    //     InputEvent::new(EventType::KEY, 330, 1),         // BTN_TOUCH
-    //     InputEvent::new(EventType::ABSOLUTE, 24, 2630),  // ABS_PRESSURE (max pressure)
-    //     InputEvent::new(EventType::ABSOLUTE, 25, 0),  // ABS_DISTANCE
-    //     InputEvent::new(EventType::SYNCHRONIZATION, 0, 0), // SYN_REPORT
-    // ])?;
+    // println!("Line 1");
+    // draw_line(&mut device, screen_to_input((200, 1000)), screen_to_input((400,1000)))?;
+    // println!("Line 2");
+    // draw_line(&mut device, screen_to_input((400,1000)), screen_to_input((400,1200)))?;
+    // println!("Line 3");
+    // draw_line(&mut device, screen_to_input((400,1200)), screen_to_input((200,1200)))?;
+    // println!("Line 4");
+    // draw_line(&mut device, screen_to_input((200,1200)), screen_to_input((200,1000)))?;
 
-    // println!("Drawing...");
-    // for x in 0..200 {
-    //     device.send_events(&[
-    //         // InputEvent::new(EventType::KEY, 330, 1),         // BTN_TOUCH
-    //         InputEvent::new(EventType::ABSOLUTE, 0, 12035 - (x * 10)),     // ABS_X
-    //         InputEvent::new(EventType::ABSOLUTE, 1, 6173),     // ABS_Y
-    //         // InputEvent::new(EventType::ABSOLUTE, 24, 2630),  // ABS_PRESSURE (max pressure)
-    //         // InputEvent::new(EventType::KEY, 330, 1),         // BTN_TOUCH
-    //         // InputEvent::new(EventType::SYNCHRONIZATION, 0, 0), // SYN_REPORT
-    //     ])?;
-    //     // thread::sleep(time::Duration::from_millis(10));
+    // for x in 0..100 {
+    //     draw_line(&mut device, screen_to_input((200+x, 1000)), screen_to_input((200+x,1200)))?;
     // }
 
-    // println!("Pen up");
-
-    // device.send_events(&[
-    //     // InputEvent::new(EventType::ABSOLUTE, 0, 10000),     // ABS_X
-    //     // InputEvent::new(EventType::ABSOLUTE, 1, 6173),     // ABS_Y
-    //     // InputEvent::new(EventType::SYNCHRONIZATION, 0, 0), // SYN_REPORT
-    //     InputEvent::new(EventType::ABSOLUTE, 24, 0),  // ABS_PRESSURE (max pressure)
-    //     InputEvent::new(EventType::KEY, 330, 0),         // BTN_TOUCH
-    //     InputEvent::new(EventType::KEY, 320, 0),         // BTN_TOOL_PEN
-    //     InputEvent::new(EventType::ABSOLUTE, 25, 100),  // ABS_DISTANCE
-    //     InputEvent::new(EventType::SYNCHRONIZATION, 0, 0), // SYN_REPORT
-    // ])?;
-
-    // // Pen up
-    // // device.send_events(&[
-    // //     InputEvent::new(EventType::ABSOLUTE, 0x00, x),     // ABS_X
-    // //     InputEvent::new(EventType::ABSOLUTE, 0x01, y),     // ABS_Y
-    // //     InputEvent::new(EventType::ABSOLUTE, 0x18, 0),     // ABS_PRESSURE (no pressure)
-    // //     InputEvent::new(EventType::KEY, 0x14a, 0),         // BTN_TOUCH
-    // //     InputEvent::new(EventType::SYNCHRONIZATION, 0, 0), // SYN_REPORT
-    // // ])?;
-    
+    for x in 0..100 {
+        draw_dot(&mut device, screen_to_input((1000+x, 1000)))?;
+    }
+    // draw_dot(&mut device, screen_to_input((1000, 1000)))?;
 
     Ok(())
 }

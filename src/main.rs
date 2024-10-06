@@ -42,7 +42,7 @@ fn main() -> Result<()> {
 
     // Example: Draw a simple line
     // let points = vec![(100, 100), (200, 200), (300, 300)];
-    draw_on_screen()?;
+    // draw_on_screen()?;
 
     if args.no_submit {
         println!("Image not submitted to OpenAI due to --no-submit flag");
@@ -52,13 +52,43 @@ fn main() -> Result<()> {
     let api_key = std::env::var("OPENAI_API_KEY")?;
     let body = json!({
         "model": "gpt-4o-mini",
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {
+                "strict": true,
+                "name": "svg_response",
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "input_description": {
+                            "type": "string",
+                            "description": "Description of input, including interpretation of what is being asked and coordinate positions of interesting features"
+                        },
+                        "output_description": {
+                            "type": "string",
+                            "description": "Description of response, both in general and specifics about how the response can be represented in an SVG overlayed on the screen. Include specifics such as position in coordinates of response objects"
+                        },
+                        "svg": {
+                            "type": "string",
+                            "description": "An SVG in correct SVG format which will be drawn on top of the existing screen elements"
+                        }
+                    },
+                    "required": [
+                        "input_description",
+                        "output_description",
+                        "svg"
+                    ],
+                    "additionalProperties": false
+                }
+            }
+        },
         "messages": [
             {
                 "role": "user",
                 "content": [
                     {
                         "type": "text",
-                        "text": "You are a helpful assistant. You live inside of a remarkable2 notepad. Your input is the current state of the screen. Look at this screenshot and use it as your input. Respond in text; later we will figure out how to turn your responses into handwriting on the screen."
+                        "text": "You are a helpful assistant. You live inside of a remarkable2 notepad, which has a 1404x1872 sized screen. Your input is the current content of the screen. Look at this content, interpret it, and respond to the content. The content will contain both handwritten notes and diagrams. Respond in the form of a JSON document which will explain the input, the output, and provide an actual svg, which we will draw onto the same screen, on top of the existing content."
                     },
                     {
                         "type": "image_url",
@@ -69,7 +99,7 @@ fn main() -> Result<()> {
                 ]
             }
         ],
-        "max_tokens": 300
+        "max_tokens": 3000
     });
 
     let response = ureq::post("https://api.openai.com/v1/chat/completions")
@@ -81,6 +111,18 @@ fn main() -> Result<()> {
         Ok(response) => {
             let json: serde_json::Value = response.into_json()?;
             println!("API Response: {}", json);
+
+            let raw_output = json["choices"][0]["message"]["content"].as_str().unwrap();
+            let json_output = serde_json::from_str::<serde_json::Value>(raw_output)?;
+            let input_description = json_output["input_description"].as_str().unwrap();
+            let output_description = json_output["output_description"].as_str().unwrap();
+            let svg_data = json_output["svg"].as_str().unwrap();
+
+            println!("Input Description: {}", input_description);
+            println!("Output Description: {}", output_description);
+            println!("SVG Data: {}", svg_data);
+
+            
         }
         Err(ureq::Error::Status(code, response)) => {
             println!("HTTP Error: {} {}", code, response.status_text());

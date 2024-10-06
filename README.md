@@ -1,5 +1,12 @@
 ## **MAIN IDEA**
-A thing for my remarkable2 that watches what I write and, perhaps prompted either with a gesture or some on-screen content, can write on the screen
+A thing for my remarkable2 that watches what I write and, perhaps prompted either with a gesture or some on-screen content, can write back to me on the screen. Explore various ways of interacting through this handwriting+screen medium.
+
+## Status
+* Basic proof of concept works!!!
+* Drawing back on the screen doesn't work super well; it takes the SVG output from ChatGPT and rasterizes it and then tries to draw lots of individual dots on the screen. The Remarkable flips out a bit ... and when the whole screen is a giant black square it really freaks out and doesn't complete
+* Things that worked at least once:
+  * Writing "Fill in the answer to this math problem... 3 + 7 ="
+  * "Draw a picture of a chihuahua. Use simple line-art"
 
 ## Ideas
 * Matt showed me his iOS super calc that just came out, take inspiration from that!
@@ -20,6 +27,9 @@ A thing for my remarkable2 that watches what I write and, perhaps prompted eithe
   * We can translate this into another language and then maybe change it to a jpg in ram
   * Tantilizing!!!
 
+
+## References
+* Adapted screen capture from [reSnap](https://github.com/cloudsftp/reSnap)
 
 ## Scratch
 
@@ -45,3 +55,5 @@ You can detect distance. The value gets smaller as you get close to the screen w
 
 EV_KEY 320 (BTN_TOOL_PEN) is for pen presence/range
 EV_KEY 330 (BTN_TOUCH) is for actual drawing
+
+

@@ -9,14 +9,28 @@ use std::{thread, time};
 
 use clap::Parser;
 
-use resvg::usvg::{fontdb, Tree, Options};
-use resvg::tiny_skia::Pixmap;
 use resvg::render;
+use resvg::tiny_skia::Pixmap;
 use resvg::usvg;
+use resvg::usvg::{fontdb, Options, Tree};
+use std::sync::Arc;
+
+use std::process::Command;
+
+use evdev::{Device, EventType, InputEvent, InputEventKind};
+
+use std::os::unix::io::AsRawFd;
+
+
+const WIDTH: usize = 1872;
+const HEIGHT: usize = 1404;
+const BYTES_PER_PIXEL: usize = 2;
+const WINDOW_BYTES: usize = WIDTH * HEIGHT * BYTES_PER_PIXEL;
+const INPUT_WIDTH: usize = 15725;
+const INPUT_HEIGHT: usize = 20966;
 
 const REMARKABLE_WIDTH: u32 = 1404;
 const REMARKABLE_HEIGHT: u32 = 1872;
-
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -121,26 +135,25 @@ fn main() -> Result<()> {
             let input_description = json_output["input_description"].as_str().unwrap();
             let output_description = json_output["output_description"].as_str().unwrap();
             let svg_data = json_output["svg"].as_str().unwrap();
-    let bitmap = svg_to_bitmap(svg_data, REMARKABLE_WIDTH as u32, REMARKABLE_HEIGHT as u32)?;
-    write_bitmap_to_file(&bitmap, "tmp/debug_bitmap.png")?;
+            let bitmap =
+                svg_to_bitmap(svg_data, REMARKABLE_WIDTH as u32, REMARKABLE_HEIGHT as u32)?;
+            write_bitmap_to_file(&bitmap, "tmp/debug_bitmap.png")?;
 
-    // Open the device for drawing
-    let mut device = Device::open("/dev/input/event1")?;
+            // Open the device for drawing
+            let mut device = Device::open("/dev/input/event1")?;
 
-    // Iterate through the bitmap and draw dots where needed
-    for (y, row) in bitmap.iter().enumerate() {
-        for (x, &pixel) in row.iter().enumerate() {
-            if pixel {
-                draw_dot(&mut device, screen_to_input((x as i32, y as i32)))?;
+            // Iterate through the bitmap and draw dots where needed
+            for (y, row) in bitmap.iter().enumerate() {
+                for (x, &pixel) in row.iter().enumerate() {
+                    if pixel {
+                        draw_dot(&mut device, screen_to_input((x as i32, y as i32)))?;
+                    }
+                }
             }
-        }
-    }
 
             println!("Input Description: {}", input_description);
             println!("Output Description: {}", output_description);
             println!("SVG Data: {}", svg_data);
-
-            
         }
         Err(ureq::Error::Status(code, response)) => {
             println!("HTTP Error: {} {}", code, response.status_text());
@@ -155,15 +168,6 @@ fn main() -> Result<()> {
     }
     Ok(())
 }
-
-use std::process::Command;
-
-const WIDTH: usize = 1872;
-const HEIGHT: usize = 1404;
-const BYTES_PER_PIXEL: usize = 2;
-const WINDOW_BYTES: usize = WIDTH * HEIGHT * BYTES_PER_PIXEL;
-const INPUT_WIDTH: usize = 15725;
-const INPUT_HEIGHT: usize = 20966;
 
 fn take_screenshot() -> Result<Vec<u8>> {
     // Find xochitl's process
@@ -225,7 +229,8 @@ fn process_image(data: Vec<u8>) -> Result<Vec<u8>> {
 use image;
 
 fn encode_png(raw_data: &[u8]) -> Result<Vec<u8>> {
-    let raw_u8: Vec<u8> = raw_data.chunks_exact(2)
+    let raw_u8: Vec<u8> = raw_data
+        .chunks_exact(2)
         .map(|chunk| u8::from_le_bytes([chunk[1]]))
         .collect();
 
@@ -235,7 +240,8 @@ fn encode_png(raw_data: &[u8]) -> Result<Vec<u8>> {
         for x in 0..REMARKABLE_WIDTH {
             // let src_idx = y * REMARKABLE_WIDTH + x;
             // let dst_idx = x * REMARKABLE_HEIGHT + (REMARKABLE_HEIGHT - 1 - y);
-            let src_idx = (REMARKABLE_HEIGHT - 1 - y) + (REMARKABLE_WIDTH - 1 - x) * REMARKABLE_HEIGHT;
+            let src_idx =
+                (REMARKABLE_HEIGHT - 1 - y) + (REMARKABLE_WIDTH - 1 - x) * REMARKABLE_HEIGHT;
             let dst_idx = y * REMARKABLE_WIDTH + x;
             processed[dst_idx as usize] = apply_curves(raw_u8[src_idx as usize]);
         }
@@ -250,7 +256,7 @@ fn encode_png(raw_data: &[u8]) -> Result<Vec<u8>> {
         img.as_raw(),
         REMARKABLE_WIDTH as u32,
         REMARKABLE_HEIGHT as u32,
-        image::ColorType::L8
+        image::ColorType::L8,
     )?;
 
     Ok(png_data)
@@ -268,10 +274,6 @@ fn apply_curves(value: u8) -> u8 {
     (adjusted * 255.0) as u8
 }
 
-use evdev::{Device, InputEvent, EventType, InputEventKind};
-
-use std::os::unix::io::AsRawFd;
-
 
 fn draw_line(device: &mut Device, (x1, y1): (i32, i32), (x2, y2): (i32, i32)) -> Result<()> {
     // println!("Drawing from ({}, {}) to ({}, {})", x1, y1, x2, y2);
@@ -284,20 +286,19 @@ fn draw_line(device: &mut Device, (x1, y1): (i32, i32), (x2, y2): (i32, i32)) ->
 
     let length = ((x2 as f32 - x1 as f32).powf(2.0) + (y2 as f32 - y1 as f32).powf(2.0)).sqrt();
     // 5.0 is the maximum distance between points
-    // If this is too small 
+    // If this is too small
     let steps = (length / 5.0).ceil() as i32;
     let dx = (x2 - x1) / steps;
     let dy = (y2 - y1) / steps;
     // println!("Drawing from ({}, {}) to ({}, {}) in {} steps", x1, y1, x2, y2, steps);
 
     device.send_events(&[
-        InputEvent::new(EventType::ABSOLUTE, 0, x1),     // ABS_X
-        InputEvent::new(EventType::ABSOLUTE, 1, y1),     // ABS_Y
-
-        InputEvent::new(EventType::KEY, 320, 1),         // BTN_TOOL_PEN
-        InputEvent::new(EventType::KEY, 330, 1),         // BTN_TOUCH
-        InputEvent::new(EventType::ABSOLUTE, 24, 2630),  // ABS_PRESSURE (max pressure)
-        InputEvent::new(EventType::ABSOLUTE, 25, 0),  // ABS_DISTANCE
+        InputEvent::new(EventType::ABSOLUTE, 0, x1), // ABS_X
+        InputEvent::new(EventType::ABSOLUTE, 1, y1), // ABS_Y
+        InputEvent::new(EventType::KEY, 320, 1),     // BTN_TOOL_PEN
+        InputEvent::new(EventType::KEY, 330, 1),     // BTN_TOUCH
+        InputEvent::new(EventType::ABSOLUTE, 24, 2630), // ABS_PRESSURE (max pressure)
+        InputEvent::new(EventType::ABSOLUTE, 25, 0), // ABS_DISTANCE
         InputEvent::new(EventType::SYNCHRONIZATION, 0, 0), // SYN_REPORT
     ])?;
 
@@ -306,17 +307,17 @@ fn draw_line(device: &mut Device, (x1, y1): (i32, i32), (x2, y2): (i32, i32)) ->
         let y = y1 + dy * i;
         // println!("Drawing to point at ({}, {})", x, y);
         device.send_events(&[
-            InputEvent::new(EventType::ABSOLUTE, 0, x),     // ABS_X
-            InputEvent::new(EventType::ABSOLUTE, 1, y),     // ABS_Y
+            InputEvent::new(EventType::ABSOLUTE, 0, x),        // ABS_X
+            InputEvent::new(EventType::ABSOLUTE, 1, y),        // ABS_Y
             InputEvent::new(EventType::SYNCHRONIZATION, 0, 0), // SYN_REPORT
         ])?;
     }
 
     device.send_events(&[
-        InputEvent::new(EventType::ABSOLUTE, 24, 0),  // ABS_PRESSURE (max pressure)
-        InputEvent::new(EventType::KEY, 330, 0),         // BTN_TOUCH
-        InputEvent::new(EventType::KEY, 320, 0),         // BTN_TOOL_PEN
-        InputEvent::new(EventType::ABSOLUTE, 25, 100),  // ABS_DISTANCE
+        InputEvent::new(EventType::ABSOLUTE, 24, 0), // ABS_PRESSURE (max pressure)
+        InputEvent::new(EventType::KEY, 330, 0),     // BTN_TOUCH
+        InputEvent::new(EventType::KEY, 320, 0),     // BTN_TOOL_PEN
+        InputEvent::new(EventType::ABSOLUTE, 25, 100), // ABS_DISTANCE
         InputEvent::new(EventType::SYNCHRONIZATION, 0, 0), // SYN_REPORT
     ])?;
 
@@ -326,41 +327,37 @@ fn draw_line(device: &mut Device, (x1, y1): (i32, i32), (x2, y2): (i32, i32)) ->
 fn draw_dot(device: &mut Device, (x, y): (i32, i32)) -> Result<()> {
     // println!("Drawing at ({}, {})", x, y);
     device.send_events(&[
-
-        InputEvent::new(EventType::ABSOLUTE, 0, x),     // ABS_X
-        InputEvent::new(EventType::ABSOLUTE, 1, y),     // ABS_Y
-        InputEvent::new(EventType::KEY, 320, 1),         // BTN_TOOL_PEN
-        InputEvent::new(EventType::KEY, 330, 1),         // BTN_TOUCH
-        InputEvent::new(EventType::ABSOLUTE, 24, 2630),  // ABS_PRESSURE
-        InputEvent::new(EventType::ABSOLUTE, 25, 0),  // ABS_DISTANCE
+        InputEvent::new(EventType::ABSOLUTE, 0, x),        // ABS_X
+        InputEvent::new(EventType::ABSOLUTE, 1, y),        // ABS_Y
+        InputEvent::new(EventType::KEY, 320, 1),           // BTN_TOOL_PEN
+        InputEvent::new(EventType::KEY, 330, 1),           // BTN_TOUCH
+        InputEvent::new(EventType::ABSOLUTE, 24, 2630),    // ABS_PRESSURE
+        InputEvent::new(EventType::ABSOLUTE, 25, 0),       // ABS_DISTANCE
         InputEvent::new(EventType::SYNCHRONIZATION, 0, 0), // SYN_REPORT
     ])?;
 
-        for n in 0..10 {
-         device.send_events(&[
-        
-        InputEvent::new(EventType::ABSOLUTE, 0, x+n),     // ABS_X
-        InputEvent::new(EventType::ABSOLUTE, 1, y+n),     // ABS_Y
-        InputEvent::new(EventType::SYNCHRONIZATION, 0, 0), // SYN_REPORT
-        ])?;
-        }
-
+    for n in 0..10 {
         device.send_events(&[
-        InputEvent::new(EventType::ABSOLUTE, 24, 0),  // ABS_PRESSURE
-        InputEvent::new(EventType::ABSOLUTE, 25, 0),  // ABS_DISTANCE
-        InputEvent::new(EventType::SYNCHRONIZATION, 0, 0), // SYN_REPORT
-        
-        InputEvent::new(EventType::KEY, 330, 0),         // BTN_TOUCH
-        InputEvent::new(EventType::KEY, 320, 1),         // BTN_TOOL_PEN
-        InputEvent::new(EventType::SYNCHRONIZATION, 0, 0), // SYN_REPORT
+            InputEvent::new(EventType::ABSOLUTE, 0, x + n), // ABS_X
+            InputEvent::new(EventType::ABSOLUTE, 1, y + n), // ABS_Y
+            InputEvent::new(EventType::SYNCHRONIZATION, 0, 0), // SYN_REPORT
         ])?;
+    }
 
-        // sleep for 5ms
-        thread::sleep(time::Duration::from_millis(5));
-    
+    device.send_events(&[
+        InputEvent::new(EventType::ABSOLUTE, 24, 0), // ABS_PRESSURE
+        InputEvent::new(EventType::ABSOLUTE, 25, 0), // ABS_DISTANCE
+        InputEvent::new(EventType::SYNCHRONIZATION, 0, 0), // SYN_REPORT
+        InputEvent::new(EventType::KEY, 330, 0),     // BTN_TOUCH
+        InputEvent::new(EventType::KEY, 320, 1),     // BTN_TOOL_PEN
+        InputEvent::new(EventType::SYNCHRONIZATION, 0, 0), // SYN_REPORT
+    ])?;
+
+    // sleep for 5ms
+    thread::sleep(time::Duration::from_millis(5));
+
     Ok(())
 }
-
 
 fn screen_to_input((x, y): (i32, i32)) -> (i32, i32) {
     // Swap and normalize the coordinates
@@ -372,40 +369,15 @@ fn screen_to_input((x, y): (i32, i32)) -> (i32, i32) {
     (x_input, y_input)
 }
 
-
 fn draw_on_screen() -> Result<()> {
     let mut device = Device::open("/dev/input/event1")?; // Pen input device
 
-    // draw_line(device, (10035, 6173), (12000, 7173))?;
-    // draw_line(device, (17396, 1530), (14401,9494))?;
-    // draw_line(&mut device, screen_to_input((200, 200)), screen_to_input((800,500)))?;
-    // draw_line(&mut device, screen_to_input((200, 500)), screen_to_input((800,200)))?;
-
-    // println!("Line 1");
-    // draw_line(&mut device, screen_to_input((200, 1000)), screen_to_input((400,1000)))?;
-    // println!("Line 2");
-    // draw_line(&mut device, screen_to_input((400,1000)), screen_to_input((400,1200)))?;
-    // println!("Line 3");
-    // draw_line(&mut device, screen_to_input((400,1200)), screen_to_input((200,1200)))?;
-    // println!("Line 4");
-    // draw_line(&mut device, screen_to_input((200,1200)), screen_to_input((200,1000)))?;
-
-    // for x in 0..100 {
-    //     draw_line(&mut device, screen_to_input((200+x, 1000)), screen_to_input((200+x,1200)))?;
-    // }
-
     for x in 0..100 {
-        draw_dot(&mut device, screen_to_input((1000+x, 1000)))?;
+        draw_dot(&mut device, screen_to_input((1000 + x, 1000)))?;
     }
-    // draw_dot(&mut device, screen_to_input((1000, 1000)))?;
 
     Ok(())
 }
-
-
-
-
-use std::sync::Arc;
 
 fn svg_to_bitmap(svg_data: &str, width: u32, height: u32) -> Result<Vec<Vec<bool>>> {
     let mut opt = Options::default();
@@ -417,7 +389,9 @@ fn svg_to_bitmap(svg_data: &str, width: u32, height: u32) -> Result<Vec<Vec<bool
     let mut pixmap = Pixmap::new(width, height).unwrap();
     render(&tree, usvg::Transform::default(), &mut pixmap.as_mut());
 
-    let bitmap = pixmap.pixels().chunks(width as usize)
+    let bitmap = pixmap
+        .pixels()
+        .chunks(width as usize)
         .map(|row| row.iter().map(|p| p.alpha() > 128).collect())
         .collect();
 
@@ -430,7 +404,11 @@ fn write_bitmap_to_file(bitmap: &Vec<Vec<bool>>, filename: &str) -> Result<()> {
 
     for (y, row) in bitmap.iter().enumerate() {
         for (x, &pixel) in row.iter().enumerate() {
-            img.put_pixel(x as u32, y as u32, image::Luma([if pixel { 0 } else { 255 }]));
+            img.put_pixel(
+                x as u32,
+                y as u32,
+                image::Luma([if pixel { 0 } else { 255 }]),
+            );
         }
     }
 

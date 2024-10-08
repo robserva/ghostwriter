@@ -149,7 +149,9 @@ fn main() -> Result<()> {
                     "content": [
                         {
                             "type": "text",
-                            "text": "You are a helpful assistant. You live inside of a remarkable2 notepad, which has a 1404x1872 sized screen which can only display black and white. Your input is the current content of the screen. Look at this content, interpret it, and respond to the content. The content will contain both handwritten notes and diagrams. Respond in the form of a JSON document which will explain the input, the output, and provide an actual svg, which we will draw onto the same screen, on top of the existing content. Try to place the output in an integrated position. Use the `Noto Sans` font-family when you are showing text."
+                            "text": "You are a helpful assistant. You live inside of a remarkable2 notepad, which has a 1404x1872 sized screen which can only display black and white. Your input is the current content of the screen. Look at this content, interpret it, and respond to the content. The content will contain both handwritten notes and diagrams. Respond in the form of a JSON document which will explain the input, the output, and provide an actual svg, which we will draw onto the same screen, on top of the existing content. Try to place the output in an integrated position. Use the `Noto Sans` font-family when you are showing text.
+                            
+                            The SVG should be kept simple. Do not use a style tag tag. Do not use any colors or gradients or transparency or shadows."
                         },
                         {
                             "type": "image_url",
@@ -195,13 +197,45 @@ fn main() -> Result<()> {
                 write_bitmap_to_file(&bitmap, "tmp/debug_bitmap.png")?;
 
                 // Iterate through the bitmap and draw dots where needed
+                // for (y, row) in bitmap.iter().enumerate() {
+                //     for (x, &pixel) in row.iter().enumerate() {
+                //         if pixel {
+                //             draw_dot(&mut device, screen_to_input((x as i32, y as i32)))?;
+                //         }
+                //     }
+                // }
+
+                let mut is_pen_down = false;
                 for (y, row) in bitmap.iter().enumerate() {
                     for (x, &pixel) in row.iter().enumerate() {
+                        
                         if pixel {
-                            draw_dot(&mut device, screen_to_input((x as i32, y as i32)))?;
+                            if !is_pen_down {
+                                draw_goto_xy(&mut device, screen_to_input((x as i32, y as i32)))?;
+                                draw_pen_down(&mut device)?;
+                                is_pen_down = true;
+                                thread::sleep(time::Duration::from_millis(1));
+                            }                            
+                            draw_goto_xy(&mut device, screen_to_input((x as i32, y as i32)))?;
+                            draw_goto_xy(&mut device, screen_to_input((x as i32 + 1, y as i32)))?;
+                            draw_goto_xy(&mut device, screen_to_input((x as i32 + 2, y as i32)))?;
+                        } else {
+                            if is_pen_down {
+                                draw_pen_up(&mut device)?;
+                                is_pen_down = false;
+                                thread::sleep(time::Duration::from_millis(1));
+                            }
                         }
+
+
                     }
+
+                    // At the end of the row, pick up the pen no matter what
+                    draw_pen_up(&mut device)?;
+                    is_pen_down = false;
+                    thread::sleep(time::Duration::from_millis(5));
                 }
+
 
                 println!("Input Description: {}", input_description);
                 println!("Output Description: {}", output_description);

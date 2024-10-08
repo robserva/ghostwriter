@@ -42,7 +42,18 @@ struct Args {
 fn main() -> Result<()> {
     let args = Args::parse();
 
+    // Open the device for drawing
+    let mut device = Device::open("/dev/input/event1")?;
+
+    loop {
+
+    wait_for_trigger()?;
+                
+                
+
     let screenshot_data = take_screenshot()?;
+
+    draw_line(&mut device, screen_to_input((1340, 5)), screen_to_input((1390, 75)))?;
 
     // Save the PNG image to a file
     let png_filename = "tmp/screenshot.png";
@@ -80,7 +91,38 @@ fn main() -> Result<()> {
                     "properties": {
                         "input_description": {
                             "type": "string",
-                            "description": "Description of input, including interpretation of what is being asked and coordinate positions of interesting features"
+                            "description": "Description of input, including interpretation of what is being asked and interesting features"
+                        },
+                        "input_features": {
+                            "type": "array",
+                            "description": "List of features in the input, including their description and coordinates",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "description": {
+                                        "type": "string",
+                                        "description": "Description of feature"
+                                    },
+                                    "top_left_x": {
+                                        "type": "number",
+                                        "description": "Top-left corner X coordinate of feature"
+                                    },
+                                    "top_left_y": {
+                                        "type": "number",
+                                        "description": "Top-left corner Y coordinate of feature"
+                                    },
+                                    "bottom_right_x": {
+                                        "type": "number",
+                                        "description": "Bottom-right corner X coordinate of feature"
+                                    },
+                                    "bottom_right_y": {
+                                        "type": "number",
+                                        "description": "Bottom-right corner Y coordinate of feature"
+                                    },
+                                },
+                                "required": ["description", "top_left_x", "top_left_y", "bottom_right_x", "bottom_right_y"],
+                                "additionalProperties": false
+                            },          
                         },
                         "output_description": {
                             "type": "string",
@@ -93,6 +135,7 @@ fn main() -> Result<()> {
                     },
                     "required": [
                         "input_description",
+                        "input_features",
                         "output_description",
                         "svg"
                     ],
@@ -106,7 +149,7 @@ fn main() -> Result<()> {
                 "content": [
                     {
                         "type": "text",
-                        "text": "You are a helpful assistant. You live inside of a remarkable2 notepad, which has a 1404x1872 sized screen. Your input is the current content of the screen. Look at this content, interpret it, and respond to the content. The content will contain both handwritten notes and diagrams. Respond in the form of a JSON document which will explain the input, the output, and provide an actual svg, which we will draw onto the same screen, on top of the existing content.Use the `Noto Sans` font-family when you are showing text."
+                        "text": "You are a helpful assistant. You live inside of a remarkable2 notepad, which has a 1404x1872 sized screen which can only display black and white. Your input is the current content of the screen. Look at this content, interpret it, and respond to the content. The content will contain both handwritten notes and diagrams. Respond in the form of a JSON document which will explain the input, the output, and provide an actual svg, which we will draw onto the same screen, on top of the existing content. Try to place the output in an integrated position. Use the `Noto Sans` font-family when you are showing text."
                     },
                     {
                         "type": "image_url",
@@ -120,6 +163,9 @@ fn main() -> Result<()> {
         "max_tokens": 3000
     });
 
+    println!("Sending request to OpenAI API...");
+    draw_line(&mut device, screen_to_input((1340, 75)), screen_to_input((1390, 5)))?;
+    
     let response = ureq::post("https://api.openai.com/v1/chat/completions")
         .set("Authorization", &format!("Bearer {}", api_key))
         .set("Content-Type", "application/json")
@@ -129,6 +175,7 @@ fn main() -> Result<()> {
         Ok(response) => {
             let json: serde_json::Value = response.into_json()?;
             println!("API Response: {}", json);
+            draw_line(&mut device, screen_to_input((1365, 5)), screen_to_input((1365, 75)))?;
 
             let raw_output = json["choices"][0]["message"]["content"].as_str().unwrap();
             let json_output = serde_json::from_str::<serde_json::Value>(raw_output)?;
@@ -139,8 +186,7 @@ fn main() -> Result<()> {
                 svg_to_bitmap(svg_data, REMARKABLE_WIDTH as u32, REMARKABLE_HEIGHT as u32)?;
             write_bitmap_to_file(&bitmap, "tmp/debug_bitmap.png")?;
 
-            // Open the device for drawing
-            let mut device = Device::open("/dev/input/event1")?;
+
 
             // Iterate through the bitmap and draw dots where needed
             for (y, row) in bitmap.iter().enumerate() {
@@ -154,6 +200,8 @@ fn main() -> Result<()> {
             println!("Input Description: {}", input_description);
             println!("Output Description: {}", output_description);
             println!("SVG Data: {}", svg_data);
+            
+            draw_line(&mut device, screen_to_input((1330, 40)), screen_to_input((1390, 40)))?;
         }
         Err(ureq::Error::Status(code, response)) => {
             println!("HTTP Error: {} {}", code, response.status_text());
@@ -166,6 +214,8 @@ fn main() -> Result<()> {
         }
         Err(e) => return Err(anyhow::anyhow!("Request failed: {}", e)),
     }
+
+}
     Ok(())
 }
 
@@ -276,7 +326,7 @@ fn apply_curves(value: u8) -> u8 {
 
 
 fn draw_line(device: &mut Device, (x1, y1): (i32, i32), (x2, y2): (i32, i32)) -> Result<()> {
-    // println!("Drawing from ({}, {}) to ({}, {})", x1, y1, x2, y2);
+    println!("Drawing from ({}, {}) to ({}, {})", x1, y1, x2, y2);
 
     // We know this is a straight line
     // So figure out the length
@@ -290,72 +340,73 @@ fn draw_line(device: &mut Device, (x1, y1): (i32, i32), (x2, y2): (i32, i32)) ->
     let steps = (length / 5.0).ceil() as i32;
     let dx = (x2 - x1) / steps;
     let dy = (y2 - y1) / steps;
-    // println!("Drawing from ({}, {}) to ({}, {}) in {} steps", x1, y1, x2, y2, steps);
+    println!("Drawing from ({}, {}) to ({}, {}) in {} steps", x1, y1, x2, y2, steps);
 
-    device.send_events(&[
-        InputEvent::new(EventType::ABSOLUTE, 0, x1), // ABS_X
-        InputEvent::new(EventType::ABSOLUTE, 1, y1), // ABS_Y
-        InputEvent::new(EventType::KEY, 320, 1),     // BTN_TOOL_PEN
-        InputEvent::new(EventType::KEY, 330, 1),     // BTN_TOUCH
-        InputEvent::new(EventType::ABSOLUTE, 24, 2630), // ABS_PRESSURE (max pressure)
-        InputEvent::new(EventType::ABSOLUTE, 25, 0), // ABS_DISTANCE
-        InputEvent::new(EventType::SYNCHRONIZATION, 0, 0), // SYN_REPORT
-    ])?;
+    draw_pen_up(device)?;
+    draw_goto_xy(device, (x1, y1))?;
+    draw_pen_down(device)?;
+
 
     for i in 0..steps {
         let x = x1 + dx * i;
         let y = y1 + dy * i;
-        // println!("Drawing to point at ({}, {})", x, y);
-        device.send_events(&[
-            InputEvent::new(EventType::ABSOLUTE, 0, x),        // ABS_X
-            InputEvent::new(EventType::ABSOLUTE, 1, y),        // ABS_Y
-            InputEvent::new(EventType::SYNCHRONIZATION, 0, 0), // SYN_REPORT
-        ])?;
+        draw_goto_xy(device, (x, y))?;
+        println!("Drawing to point at ({}, {})", x, y);
+
     }
 
-    device.send_events(&[
-        InputEvent::new(EventType::ABSOLUTE, 24, 0), // ABS_PRESSURE (max pressure)
-        InputEvent::new(EventType::KEY, 330, 0),     // BTN_TOUCH
-        InputEvent::new(EventType::KEY, 320, 0),     // BTN_TOOL_PEN
-        InputEvent::new(EventType::ABSOLUTE, 25, 100), // ABS_DISTANCE
-        InputEvent::new(EventType::SYNCHRONIZATION, 0, 0), // SYN_REPORT
-    ])?;
+    draw_pen_up(device)?;
 
     Ok(())
 }
 
 fn draw_dot(device: &mut Device, (x, y): (i32, i32)) -> Result<()> {
     // println!("Drawing at ({}, {})", x, y);
+    draw_goto_xy(device, (x, y))?;
+    draw_pen_down(device)?;
+
+    // Wiggle a little bit
+    for n in 0..2 {
+        draw_goto_xy(device, (x+n, y+n))?;
+    }
+
+    draw_pen_up(device)?;
+
+    // sleep for 5ms
+    thread::sleep(time::Duration::from_millis(1));
+
+    Ok(())
+}
+
+fn draw_pen_down(device: &mut Device) -> Result<()> {
+    device.send_events(&[
+        InputEvent::new(EventType::KEY, 320, 1),     // BTN_TOOL_PEN
+        InputEvent::new(EventType::KEY, 330, 1),     // BTN_TOUCH
+        InputEvent::new(EventType::ABSOLUTE, 24, 2630), // ABS_PRESSURE (max pressure)
+        InputEvent::new(EventType::ABSOLUTE, 25, 0), // ABS_DISTANCE
+        InputEvent::new(EventType::SYNCHRONIZATION, 0, 0), // SYN_REPORT
+    ])?;
+    Ok(())
+}
+
+fn draw_pen_up(device: &mut Device) -> Result<()> {
+    device.send_events(&[
+        InputEvent::new(EventType::ABSOLUTE, 24, 0), // ABS_PRESSURE
+        InputEvent::new(EventType::ABSOLUTE, 25, 100), // ABS_DISTANCE
+        InputEvent::new(EventType::KEY, 330, 0),     // BTN_TOUCH
+        InputEvent::new(EventType::KEY, 320, 0),     // BTN_TOOL_PEN
+        InputEvent::new(EventType::SYNCHRONIZATION, 0, 0), // SYN_REPORT
+    ])?;
+    Ok(())
+}
+
+fn draw_goto_xy(device: &mut Device, (x, y): (i32, i32)) -> Result<()> {
+    // println!("Drawing to point at ({}, {})", x, y);
     device.send_events(&[
         InputEvent::new(EventType::ABSOLUTE, 0, x),        // ABS_X
         InputEvent::new(EventType::ABSOLUTE, 1, y),        // ABS_Y
-        InputEvent::new(EventType::KEY, 320, 1),           // BTN_TOOL_PEN
-        InputEvent::new(EventType::KEY, 330, 1),           // BTN_TOUCH
-        InputEvent::new(EventType::ABSOLUTE, 24, 2630),    // ABS_PRESSURE
-        InputEvent::new(EventType::ABSOLUTE, 25, 0),       // ABS_DISTANCE
         InputEvent::new(EventType::SYNCHRONIZATION, 0, 0), // SYN_REPORT
     ])?;
-
-    for n in 0..10 {
-        device.send_events(&[
-            InputEvent::new(EventType::ABSOLUTE, 0, x + n), // ABS_X
-            InputEvent::new(EventType::ABSOLUTE, 1, y + n), // ABS_Y
-            InputEvent::new(EventType::SYNCHRONIZATION, 0, 0), // SYN_REPORT
-        ])?;
-    }
-
-    device.send_events(&[
-        InputEvent::new(EventType::ABSOLUTE, 24, 0), // ABS_PRESSURE
-        InputEvent::new(EventType::ABSOLUTE, 25, 0), // ABS_DISTANCE
-        InputEvent::new(EventType::SYNCHRONIZATION, 0, 0), // SYN_REPORT
-        InputEvent::new(EventType::KEY, 330, 0),     // BTN_TOUCH
-        InputEvent::new(EventType::KEY, 320, 1),     // BTN_TOOL_PEN
-        InputEvent::new(EventType::SYNCHRONIZATION, 0, 0), // SYN_REPORT
-    ])?;
-
-    // sleep for 5ms
-    thread::sleep(time::Duration::from_millis(5));
-
     Ok(())
 }
 
@@ -397,6 +448,7 @@ fn svg_to_bitmap(svg_data: &str, width: u32, height: u32) -> Result<Vec<Vec<bool
 
     Ok(bitmap)
 }
+
 fn write_bitmap_to_file(bitmap: &Vec<Vec<bool>>, filename: &str) -> Result<()> {
     let width = bitmap[0].len();
     let height = bitmap.len();
@@ -415,4 +467,125 @@ fn write_bitmap_to_file(bitmap: &Vec<Vec<bool>>, filename: &str) -> Result<()> {
     img.save(filename)?;
     println!("Bitmap saved to {}", filename);
     Ok(())
+}
+
+/*
+Trace from evtest
+
+Input driver version is 1.0.1
+Input device ID: bus 0x0 vendor 0x0 product 0x0 version 0x0
+Input device name: "pt_mt"
+Supported events:
+  Event type 0 (EV_SYN)
+  Event type 1 (EV_KEY)
+    Event code 59 (KEY_F1)
+    Event code 60 (KEY_F2)
+    Event code 61 (KEY_F3)
+    Event code 62 (KEY_F4)
+    Event code 63 (KEY_F5)
+    Event code 64 (KEY_F6)
+    Event code 65 (KEY_F7)
+    Event code 66 (KEY_F8)
+  Event type 2 (EV_REL)
+  Event type 3 (EV_ABS)
+    Event code 25 (ABS_DISTANCE)
+      Value      0
+      Min        0
+      Max      255
+    Event code 47 (ABS_MT_SLOT)
+      Value      0
+      Min        0
+      Max       31
+    Event code 48 (ABS_MT_TOUCH_MAJOR)
+      Value      0
+      Min        0
+      Max      255
+    Event code 49 (ABS_MT_TOUCH_MINOR)
+      Value      0
+      Min        0
+      Max      255
+    Event code 52 (ABS_MT_ORIENTATION)
+      Value      0
+      Min     -127
+      Max      127
+    Event code 53 (ABS_MT_POSITION_X)
+      Value      0
+      Min        0
+      Max     1403
+    Event code 54 (ABS_MT_POSITION_Y)
+      Value      0
+      Min        0
+      Max     1871
+    Event code 55 (ABS_MT_TOOL_TYPE)
+      Value      0
+      Min        0
+      Max        1
+    Event code 57 (ABS_MT_TRACKING_ID)
+      Value      0
+      Min        0
+      Max    65535
+    Event code 58 (ABS_MT_PRESSURE)
+      Value      0
+      Min        0
+      Max      255
+Properties:
+  Property type 1 (INPUT_PROP_DIRECT)
+
+
+
+Event: time 1728350196.278103, type 3 (EV_ABS), code 57 (ABS_MT_TRACKING_ID), value 2879
+Event: time 1728350196.278103, type 3 (EV_ABS), code 53 (ABS_MT_POSITION_X), value 1340
+Event: time 1728350196.278103, type 3 (EV_ABS), code 54 (ABS_MT_POSITION_Y), value 50
+Event: time 1728350196.278103, type 3 (EV_ABS), code 58 (ABS_MT_PRESSURE), value 164
+Event: time 1728350196.278103, type 3 (EV_ABS), code 48 (ABS_MT_TOUCH_MAJOR), value 17
+Event: time 1728350196.278103, type 3 (EV_ABS), code 49 (ABS_MT_TOUCH_MINOR), value 26
+Event: time 1728350196.278103, type 3 (EV_ABS), code 52 (ABS_MT_ORIENTATION), value 5
+Event: time 1728350196.278103, -------------- SYN_REPORT ------------
+Event: time 1728350196.340895, type 3 (EV_ABS), code 53 (ABS_MT_POSITION_X), value 1341
+Event: time 1728350196.340895, type 3 (EV_ABS), code 54 (ABS_MT_POSITION_Y), value 52
+Event: time 1728350196.340895, type 3 (EV_ABS), code 58 (ABS_MT_PRESSURE), value 170
+Event: time 1728350196.340895, type 3 (EV_ABS), code 48 (ABS_MT_TOUCH_MAJOR), value 26
+Event: time 1728350196.340895, type 3 (EV_ABS), code 52 (ABS_MT_ORIENTATION), value 6
+Event: time 1728350196.340895, -------------- SYN_REPORT ------------
+Event: time 1728350196.352804, type 3 (EV_ABS), code 54 (ABS_MT_POSITION_Y), value 53
+Event: time 1728350196.352804, type 3 (EV_ABS), code 58 (ABS_MT_PRESSURE), value 167
+Event: time 1728350196.352804, -------------- SYN_REPORT ------------
+Event: time 1728350196.364653, type 3 (EV_ABS), code 53 (ABS_MT_POSITION_X), value 1342
+Event: time 1728350196.364653, type 3 (EV_ABS), code 54 (ABS_MT_POSITION_Y), value 55
+Event: time 1728350196.364653, type 3 (EV_ABS), code 58 (ABS_MT_PRESSURE), value 155
+Event: time 1728350196.364653, type 3 (EV_ABS), code 49 (ABS_MT_TOUCH_MINOR), value 17
+Event: time 1728350196.364653, type 3 (EV_ABS), code 52 (ABS_MT_ORIENTATION), value 4
+Event: time 1728350196.364653, -------------- SYN_REPORT ------------
+Event: time 1728350196.376561, type 3 (EV_ABS), code 53 (ABS_MT_POSITION_X), value 1343
+Event: time 1728350196.376561, type 3 (EV_ABS), code 54 (ABS_MT_POSITION_Y), value 59
+Event: time 1728350196.376561, type 3 (EV_ABS), code 58 (ABS_MT_PRESSURE), value 110
+Event: time 1728350196.376561, -------------- SYN_REPORT ------------
+Event: time 1728350196.411901, type 3 (EV_ABS), code 57 (ABS_MT_TRACKING_ID), value -1
+Event: time 1728350196.411901, -------------- SYN_REPORT ------------
+*/
+
+fn wait_for_trigger() -> Result<()> {
+    let mut device = Device::open("/dev/input/event2")?; // Touch input device
+    let mut position_x = 0;
+    let mut position_y = 0;
+    loop {
+        for event in device.fetch_events().unwrap() {
+        
+            if event.code() == 53 {
+            position_x = event.value();
+            }
+            if event.code() == 54 {
+                position_y = event.value();
+            }
+            if event.code() == 57 {
+                if event.value() == -1 {
+                    println!("Touch release detected at ({}, {})", position_x, position_y);
+                    if position_x > 1360 && position_y > 1810 {
+                        println!("Touch release in target zone!");
+                        return Ok(());
+                    }
+                }
+            }
+        }
+    }
 }

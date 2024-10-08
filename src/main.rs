@@ -21,7 +21,6 @@ use evdev::{Device, EventType, InputEvent, InputEventKind};
 
 use std::os::unix::io::AsRawFd;
 
-
 const WIDTH: usize = 1872;
 const HEIGHT: usize = 1404;
 const BYTES_PER_PIXEL: usize = 2;
@@ -46,176 +45,186 @@ fn main() -> Result<()> {
     let mut device = Device::open("/dev/input/event1")?;
 
     loop {
+        wait_for_trigger()?;
 
-    wait_for_trigger()?;
-                
-                
+        let screenshot_data = take_screenshot()?;
 
-    let screenshot_data = take_screenshot()?;
+        draw_line(
+            &mut device,
+            screen_to_input((1340, 5)),
+            screen_to_input((1390, 75)),
+        )?;
 
-    draw_line(&mut device, screen_to_input((1340, 5)), screen_to_input((1390, 75)))?;
+        // Save the PNG image to a file
+        let png_filename = "tmp/screenshot.png";
+        let mut png_file = File::create(png_filename)?;
+        png_file.write_all(&screenshot_data)?;
+        println!("PNG image saved to {}", png_filename);
 
-    // Save the PNG image to a file
-    let png_filename = "tmp/screenshot.png";
-    let mut png_file = File::create(png_filename)?;
-    png_file.write_all(&screenshot_data)?;
-    println!("PNG image saved to {}", png_filename);
+        let base64_image = general_purpose::STANDARD.encode(&screenshot_data);
 
-    let base64_image = general_purpose::STANDARD.encode(&screenshot_data);
+        // Save the base64 encoded image to a file
+        let base64_filename = "tmp/screenshot_base64.txt";
+        let mut base64_file = File::create(base64_filename)?;
+        base64_file.write_all(base64_image.as_bytes())?;
+        println!("Base64 encoded image saved to {}", base64_filename);
 
-    // Save the base64 encoded image to a file
-    let base64_filename = "tmp/screenshot_base64.txt";
-    let mut base64_file = File::create(base64_filename)?;
-    base64_file.write_all(base64_image.as_bytes())?;
-    println!("Base64 encoded image saved to {}", base64_filename);
+        // Example: Draw a simple line
+        // let points = vec![(100, 100), (200, 200), (300, 300)];
+        // draw_on_screen()?;
 
-    // Example: Draw a simple line
-    // let points = vec![(100, 100), (200, 200), (300, 300)];
-    // draw_on_screen()?;
+        if args.no_submit {
+            println!("Image not submitted to OpenAI due to --no-submit flag");
+            return Ok(());
+        }
 
-    if args.no_submit {
-        println!("Image not submitted to OpenAI due to --no-submit flag");
-        return Ok(());
-    }
-
-    let api_key = std::env::var("OPENAI_API_KEY")?;
-    let body = json!({
-        "model": "gpt-4o-mini",
-        "response_format": {
-            "type": "json_schema",
-            "json_schema": {
-                "strict": true,
-                "name": "svg_response",
-                "schema": {
-                    "type": "object",
-                    "properties": {
-                        "input_description": {
-                            "type": "string",
-                            "description": "Description of input, including interpretation of what is being asked and interesting features"
-                        },
-                        "input_features": {
-                            "type": "array",
-                            "description": "List of features in the input, including their description and coordinates",
-                            "items": {
-                                "type": "object",
-                                "properties": {
-                                    "description": {
-                                        "type": "string",
-                                        "description": "Description of feature"
+        let api_key = std::env::var("OPENAI_API_KEY")?;
+        let body = json!({
+            "model": "gpt-4o-mini",
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {
+                    "strict": true,
+                    "name": "svg_response",
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "input_description": {
+                                "type": "string",
+                                "description": "Description of input, including interpretation of what is being asked and interesting features"
+                            },
+                            "input_features": {
+                                "type": "array",
+                                "description": "List of features in the input, including their description and coordinates",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "description": {
+                                            "type": "string",
+                                            "description": "Description of feature"
+                                        },
+                                        "top_left_x": {
+                                            "type": "number",
+                                            "description": "Top-left corner X coordinate of feature"
+                                        },
+                                        "top_left_y": {
+                                            "type": "number",
+                                            "description": "Top-left corner Y coordinate of feature"
+                                        },
+                                        "bottom_right_x": {
+                                            "type": "number",
+                                            "description": "Bottom-right corner X coordinate of feature"
+                                        },
+                                        "bottom_right_y": {
+                                            "type": "number",
+                                            "description": "Bottom-right corner Y coordinate of feature"
+                                        },
                                     },
-                                    "top_left_x": {
-                                        "type": "number",
-                                        "description": "Top-left corner X coordinate of feature"
-                                    },
-                                    "top_left_y": {
-                                        "type": "number",
-                                        "description": "Top-left corner Y coordinate of feature"
-                                    },
-                                    "bottom_right_x": {
-                                        "type": "number",
-                                        "description": "Bottom-right corner X coordinate of feature"
-                                    },
-                                    "bottom_right_y": {
-                                        "type": "number",
-                                        "description": "Bottom-right corner Y coordinate of feature"
-                                    },
+                                    "required": ["description", "top_left_x", "top_left_y", "bottom_right_x", "bottom_right_y"],
+                                    "additionalProperties": false
                                 },
-                                "required": ["description", "top_left_x", "top_left_y", "bottom_right_x", "bottom_right_y"],
-                                "additionalProperties": false
-                            },          
+                            },
+                            "output_description": {
+                                "type": "string",
+                                "description": "Description of response, both in general and specifics about how the response can be represented in an SVG overlayed on the screen. Include specifics such as position in coordinates of response objects"
+                            },
+                            "svg": {
+                                "type": "string",
+                                "description": "An SVG in correct SVG format which will be drawn on top of the existing screen elements"
+                            }
                         },
-                        "output_description": {
-                            "type": "string",
-                            "description": "Description of response, both in general and specifics about how the response can be represented in an SVG overlayed on the screen. Include specifics such as position in coordinates of response objects"
-                        },
-                        "svg": {
-                            "type": "string",
-                            "description": "An SVG in correct SVG format which will be drawn on top of the existing screen elements"
-                        }
-                    },
-                    "required": [
-                        "input_description",
-                        "input_features",
-                        "output_description",
-                        "svg"
-                    ],
-                    "additionalProperties": false
-                }
-            }
-        },
-        "messages": [
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": "You are a helpful assistant. You live inside of a remarkable2 notepad, which has a 1404x1872 sized screen which can only display black and white. Your input is the current content of the screen. Look at this content, interpret it, and respond to the content. The content will contain both handwritten notes and diagrams. Respond in the form of a JSON document which will explain the input, the output, and provide an actual svg, which we will draw onto the same screen, on top of the existing content. Try to place the output in an integrated position. Use the `Noto Sans` font-family when you are showing text."
-                    },
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": format!("data:image/png;base64,{}", base64_image)
-                        }
-                    }
-                ]
-            }
-        ],
-        "max_tokens": 3000
-    });
-
-    println!("Sending request to OpenAI API...");
-    draw_line(&mut device, screen_to_input((1340, 75)), screen_to_input((1390, 5)))?;
-    
-    let response = ureq::post("https://api.openai.com/v1/chat/completions")
-        .set("Authorization", &format!("Bearer {}", api_key))
-        .set("Content-Type", "application/json")
-        .send_json(&body);
-
-    match response {
-        Ok(response) => {
-            let json: serde_json::Value = response.into_json()?;
-            println!("API Response: {}", json);
-            draw_line(&mut device, screen_to_input((1365, 5)), screen_to_input((1365, 75)))?;
-
-            let raw_output = json["choices"][0]["message"]["content"].as_str().unwrap();
-            let json_output = serde_json::from_str::<serde_json::Value>(raw_output)?;
-            let input_description = json_output["input_description"].as_str().unwrap();
-            let output_description = json_output["output_description"].as_str().unwrap();
-            let svg_data = json_output["svg"].as_str().unwrap();
-            let bitmap =
-                svg_to_bitmap(svg_data, REMARKABLE_WIDTH as u32, REMARKABLE_HEIGHT as u32)?;
-            write_bitmap_to_file(&bitmap, "tmp/debug_bitmap.png")?;
-
-
-
-            // Iterate through the bitmap and draw dots where needed
-            for (y, row) in bitmap.iter().enumerate() {
-                for (x, &pixel) in row.iter().enumerate() {
-                    if pixel {
-                        draw_dot(&mut device, screen_to_input((x as i32, y as i32)))?;
+                        "required": [
+                            "input_description",
+                            "input_features",
+                            "output_description",
+                            "svg"
+                        ],
+                        "additionalProperties": false
                     }
                 }
-            }
+            },
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "You are a helpful assistant. You live inside of a remarkable2 notepad, which has a 1404x1872 sized screen which can only display black and white. Your input is the current content of the screen. Look at this content, interpret it, and respond to the content. The content will contain both handwritten notes and diagrams. Respond in the form of a JSON document which will explain the input, the output, and provide an actual svg, which we will draw onto the same screen, on top of the existing content. Try to place the output in an integrated position. Use the `Noto Sans` font-family when you are showing text."
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": format!("data:image/png;base64,{}", base64_image)
+                            }
+                        }
+                    ]
+                }
+            ],
+            "max_tokens": 3000
+        });
 
-            println!("Input Description: {}", input_description);
-            println!("Output Description: {}", output_description);
-            println!("SVG Data: {}", svg_data);
-            
-            draw_line(&mut device, screen_to_input((1330, 40)), screen_to_input((1390, 40)))?;
-        }
-        Err(ureq::Error::Status(code, response)) => {
-            println!("HTTP Error: {} {}", code, response.status_text());
-            if let Ok(json) = response.into_json::<serde_json::Value>() {
-                println!("Error details: {}", json);
-            } else {
-                println!("Failed to parse error response as JSON");
+        println!("Sending request to OpenAI API...");
+        draw_line(
+            &mut device,
+            screen_to_input((1340, 75)),
+            screen_to_input((1390, 5)),
+        )?;
+
+        let response = ureq::post("https://api.openai.com/v1/chat/completions")
+            .set("Authorization", &format!("Bearer {}", api_key))
+            .set("Content-Type", "application/json")
+            .send_json(&body);
+
+        match response {
+            Ok(response) => {
+                let json: serde_json::Value = response.into_json()?;
+                println!("API Response: {}", json);
+                draw_line(
+                    &mut device,
+                    screen_to_input((1365, 5)),
+                    screen_to_input((1365, 75)),
+                )?;
+
+                let raw_output = json["choices"][0]["message"]["content"].as_str().unwrap();
+                let json_output = serde_json::from_str::<serde_json::Value>(raw_output)?;
+                let input_description = json_output["input_description"].as_str().unwrap();
+                let output_description = json_output["output_description"].as_str().unwrap();
+                let svg_data = json_output["svg"].as_str().unwrap();
+                let bitmap =
+                    svg_to_bitmap(svg_data, REMARKABLE_WIDTH as u32, REMARKABLE_HEIGHT as u32)?;
+                write_bitmap_to_file(&bitmap, "tmp/debug_bitmap.png")?;
+
+                // Iterate through the bitmap and draw dots where needed
+                for (y, row) in bitmap.iter().enumerate() {
+                    for (x, &pixel) in row.iter().enumerate() {
+                        if pixel {
+                            draw_dot(&mut device, screen_to_input((x as i32, y as i32)))?;
+                        }
+                    }
+                }
+
+                println!("Input Description: {}", input_description);
+                println!("Output Description: {}", output_description);
+                println!("SVG Data: {}", svg_data);
+
+                draw_line(
+                    &mut device,
+                    screen_to_input((1330, 40)),
+                    screen_to_input((1390, 40)),
+                )?;
             }
-            return Err(anyhow::anyhow!("API request failed"));
+            Err(ureq::Error::Status(code, response)) => {
+                println!("HTTP Error: {} {}", code, response.status_text());
+                if let Ok(json) = response.into_json::<serde_json::Value>() {
+                    println!("Error details: {}", json);
+                } else {
+                    println!("Failed to parse error response as JSON");
+                }
+                return Err(anyhow::anyhow!("API request failed"));
+            }
+            Err(e) => return Err(anyhow::anyhow!("Request failed: {}", e)),
         }
-        Err(e) => return Err(anyhow::anyhow!("Request failed: {}", e)),
     }
-
-}
     Ok(())
 }
 
@@ -324,7 +333,6 @@ fn apply_curves(value: u8) -> u8 {
     (adjusted * 255.0) as u8
 }
 
-
 fn draw_line(device: &mut Device, (x1, y1): (i32, i32), (x2, y2): (i32, i32)) -> Result<()> {
     println!("Drawing from ({}, {}) to ({}, {})", x1, y1, x2, y2);
 
@@ -340,19 +348,20 @@ fn draw_line(device: &mut Device, (x1, y1): (i32, i32), (x2, y2): (i32, i32)) ->
     let steps = (length / 5.0).ceil() as i32;
     let dx = (x2 - x1) / steps;
     let dy = (y2 - y1) / steps;
-    println!("Drawing from ({}, {}) to ({}, {}) in {} steps", x1, y1, x2, y2, steps);
+    println!(
+        "Drawing from ({}, {}) to ({}, {}) in {} steps",
+        x1, y1, x2, y2, steps
+    );
 
     draw_pen_up(device)?;
     draw_goto_xy(device, (x1, y1))?;
     draw_pen_down(device)?;
-
 
     for i in 0..steps {
         let x = x1 + dx * i;
         let y = y1 + dy * i;
         draw_goto_xy(device, (x, y))?;
         println!("Drawing to point at ({}, {})", x, y);
-
     }
 
     draw_pen_up(device)?;
@@ -367,7 +376,7 @@ fn draw_dot(device: &mut Device, (x, y): (i32, i32)) -> Result<()> {
 
     // Wiggle a little bit
     for n in 0..2 {
-        draw_goto_xy(device, (x+n, y+n))?;
+        draw_goto_xy(device, (x + n, y + n))?;
     }
 
     draw_pen_up(device)?;
@@ -380,8 +389,8 @@ fn draw_dot(device: &mut Device, (x, y): (i32, i32)) -> Result<()> {
 
 fn draw_pen_down(device: &mut Device) -> Result<()> {
     device.send_events(&[
-        InputEvent::new(EventType::KEY, 320, 1),     // BTN_TOOL_PEN
-        InputEvent::new(EventType::KEY, 330, 1),     // BTN_TOUCH
+        InputEvent::new(EventType::KEY, 320, 1), // BTN_TOOL_PEN
+        InputEvent::new(EventType::KEY, 330, 1), // BTN_TOUCH
         InputEvent::new(EventType::ABSOLUTE, 24, 2630), // ABS_PRESSURE (max pressure)
         InputEvent::new(EventType::ABSOLUTE, 25, 0), // ABS_DISTANCE
         InputEvent::new(EventType::SYNCHRONIZATION, 0, 0), // SYN_REPORT
@@ -570,9 +579,8 @@ fn wait_for_trigger() -> Result<()> {
     let mut position_y = 0;
     loop {
         for event in device.fetch_events().unwrap() {
-        
             if event.code() == 53 {
-            position_x = event.value();
+                position_x = event.value();
             }
             if event.code() == 54 {
                 position_y = event.value();

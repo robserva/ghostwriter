@@ -151,7 +151,7 @@ fn main() -> Result<()> {
                             "type": "text",
                             "text": "You are a helpful assistant. You live inside of a remarkable2 notepad, which has a 1404x1872 sized screen which can only display black and white. Your input is the current content of the screen. Look at this content, interpret it, and respond to the content. The content will contain both handwritten notes and diagrams. Respond in the form of a JSON document which will explain the input, the output, and provide an actual svg, which we will draw onto the same screen, on top of the existing content. Try to place the output in an integrated position. Use the `Noto Sans` font-family when you are showing text.
                             
-                            The SVG should be kept simple. Do not use a style tag tag. Do not use any colors or gradients or transparency or shadows."
+                            The SVG should be kept simple. Do not use a style tag tag. Do not use any colors or gradients or transparency or shadows. Do include the xmlns in the main svg tag."
                         },
                         {
                             "type": "image_url",
@@ -192,9 +192,16 @@ fn main() -> Result<()> {
                 let input_description = json_output["input_description"].as_str().unwrap();
                 let output_description = json_output["output_description"].as_str().unwrap();
                 let svg_data = json_output["svg"].as_str().unwrap();
+
+                println!("Input Description: {}", input_description);
+                println!("Output Description: {}", output_description);
+                println!("SVG Data: {}", svg_data);
+
+                println!("Rendering SVG to bitmap");
                 let bitmap =
                     svg_to_bitmap(svg_data, REMARKABLE_WIDTH as u32, REMARKABLE_HEIGHT as u32)?;
                 write_bitmap_to_file(&bitmap, "tmp/debug_bitmap.png")?;
+
 
                 // Iterate through the bitmap and draw dots where needed
                 // for (y, row) in bitmap.iter().enumerate() {
@@ -205,6 +212,7 @@ fn main() -> Result<()> {
                 //     }
                 // }
 
+                println!("Drawing output back onto the screen");
                 let mut is_pen_down = false;
                 for (y, row) in bitmap.iter().enumerate() {
                     for (x, &pixel) in row.iter().enumerate() {
@@ -237,9 +245,6 @@ fn main() -> Result<()> {
                 }
 
 
-                println!("Input Description: {}", input_description);
-                println!("Output Description: {}", output_description);
-                println!("SVG Data: {}", svg_data);
 
                 draw_line(
                     &mut device,
@@ -368,7 +373,7 @@ fn apply_curves(value: u8) -> u8 {
 }
 
 fn draw_line(device: &mut Device, (x1, y1): (i32, i32), (x2, y2): (i32, i32)) -> Result<()> {
-    println!("Drawing from ({}, {}) to ({}, {})", x1, y1, x2, y2);
+    // println!("Drawing from ({}, {}) to ({}, {})", x1, y1, x2, y2);
 
     // We know this is a straight line
     // So figure out the length
@@ -382,10 +387,10 @@ fn draw_line(device: &mut Device, (x1, y1): (i32, i32), (x2, y2): (i32, i32)) ->
     let steps = (length / 5.0).ceil() as i32;
     let dx = (x2 - x1) / steps;
     let dy = (y2 - y1) / steps;
-    println!(
-        "Drawing from ({}, {}) to ({}, {}) in {} steps",
-        x1, y1, x2, y2, steps
-    );
+    // println!(
+    //     "Drawing from ({}, {}) to ({}, {}) in {} steps",
+    //     x1, y1, x2, y2, steps
+    // );
 
     draw_pen_up(device)?;
     draw_goto_xy(device, (x1, y1))?;
@@ -395,7 +400,7 @@ fn draw_line(device: &mut Device, (x1, y1): (i32, i32), (x2, y2): (i32, i32)) ->
         let x = x1 + dx * i;
         let y = y1 + dy * i;
         draw_goto_xy(device, (x, y))?;
-        println!("Drawing to point at ({}, {})", x, y);
+        // println!("Drawing to point at ({}, {})", x, y);
     }
 
     draw_pen_up(device)?;
@@ -479,7 +484,15 @@ fn svg_to_bitmap(svg_data: &str, width: u32, height: u32) -> Result<Vec<Vec<bool
     fontdb.load_fonts_dir("/usr/share/fonts/ttf/noto");
     opt.fontdb = Arc::new(fontdb);
 
-    let tree = Tree::from_str(svg_data, &opt)?;
+    let tree = match Tree::from_str(svg_data, &opt) {
+        Ok(tree) => tree,
+        Err(e) => {
+            println!("Error parsing SVG: {}. Using fallback SVG.", e);
+            let fallback_svg = r#"<svg width='1404' height='1872' xmlns='http://www.w3.org/2000/svg'><text x='300' y='1285' font-family='Noto Sans' font-size='24'>ERROR!</text></svg>"#;
+            Tree::from_str(fallback_svg, &opt)?
+        }
+    };
+
     let mut pixmap = Pixmap::new(width, height).unwrap();
     render(&tree, usvg::Transform::default(), &mut pixmap.as_mut());
 

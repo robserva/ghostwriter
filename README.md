@@ -64,8 +64,6 @@ scp target/armv7-unknown-linux-gnueabihf/release/ghostwriter remarkable:
 
 ## Scratch
 
-
-
 I got evtest by getting the ipkg from trotek and untaring it a few levels and then scping it over. Surprisingly it works!
 
 Now I can see that /dev/input/event1 is pen input and /dev/input/event2 is touch input

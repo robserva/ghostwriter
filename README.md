@@ -7,10 +7,10 @@
 
 ## Usage
 
-You need an `OPENAI_API_KEY` environment variable set. I did this by adding it to my ~/.bashrc file:
+You need an `OPENAI_API_KEY` environment variable set. I did this by adding it to my ~/.bashrc file on the remarkable:
 
 ```sh
-# In ~/.bashrc or before you run ghostwriter
+# In the remarkable's ~/.bashrc or before you run ghostwriter
 export OPENAI_API_KEY=your-key-here
 ```
 

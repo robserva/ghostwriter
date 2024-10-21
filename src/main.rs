@@ -70,7 +70,6 @@ fn keyboard_test(args: &Args) -> Result<()> {
 }
 
 fn text_assistant(args: &Args) -> Result<()> {
-
     let mut keyboard = create_virtual_keyboard();
 
     loop {
@@ -104,14 +103,18 @@ fn text_assistant(args: &Args) -> Result<()> {
 
         let api_key = std::env::var("OPENAI_API_KEY")?;
 
-        let mut body = serde_json::from_str::<serde_json::Value>(include_str!("../prompts/text.json"))?;
+        let mut body =
+            serde_json::from_str::<serde_json::Value>(include_str!("../prompts/text.json"))?;
         body["model"] = json!(args.model);
-        body["messages"][0]["content"].as_array_mut().unwrap().push(json!({
-            "type": "image_url",
-            "image_url": {
-                "url": format!("data:image/png;base64,{}", base64_image)
-            }
-        }));
+        body["messages"][0]["content"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({
+                "type": "image_url",
+                "image_url": {
+                    "url": format!("data:image/png;base64,{}", base64_image)
+                }
+            }));
 
         println!("Sending request to OpenAI API...");
         string_to_keypresses(&mut keyboard, ".")?;
@@ -205,16 +208,20 @@ fn ghostwriter(args: &Args) -> Result<()> {
 
         // Get the base prompt from prompts/base.json as a serde json object
         // Then modify it to set our current model and add the image
-        let mut body = serde_json::from_str::<serde_json::Value>(include_str!("../prompts/base.json"))?;
+        let mut body =
+            serde_json::from_str::<serde_json::Value>(include_str!("../prompts/base.json"))?;
         body["model"] = json!(args.model);
         // body["model"] = json!("gpt-4o");
         // body["model"] = json!("o1-preview");
-        body["messages"][0]["content"].as_array_mut().unwrap().push(json!({
-            "type": "image_url",
-            "image_url": {
-                "url": format!("data:image/png;base64,{}", base64_image)
-            }
-        }));
+        body["messages"][0]["content"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({
+                "type": "image_url",
+                "image_url": {
+                    "url": format!("data:image/png;base64,{}", base64_image)
+                }
+            }));
 
         println!("Sending request to OpenAI API...");
         draw_line(
@@ -593,7 +600,7 @@ fn wait_for_trigger() -> Result<()> {
     }
 }
 
-use evdev::{uinput::VirtualDeviceBuilder, uinput::VirtualDevice, AttributeSet, Key};
+use evdev::{uinput::VirtualDevice, uinput::VirtualDeviceBuilder, AttributeSet, Key};
 use std::thread::sleep;
 use std::time::Duration;
 
@@ -616,7 +623,11 @@ fn string_to_keypresses(device: &mut VirtualDevice, input: &str) -> Result<(), e
         if let Some(&(key, shift)) = key_map.get(&c) {
             if shift {
                 // Press Shift
-                device.emit(&[InputEvent::new(EventType::KEY, Key::KEY_LEFTSHIFT.code(), 1)])?;
+                device.emit(&[InputEvent::new(
+                    EventType::KEY,
+                    Key::KEY_LEFTSHIFT.code(),
+                    1,
+                )])?;
             }
 
             // Press key
@@ -627,7 +638,11 @@ fn string_to_keypresses(device: &mut VirtualDevice, input: &str) -> Result<(), e
 
             if shift {
                 // Release Shift
-                device.emit(&[InputEvent::new(EventType::KEY, Key::KEY_LEFTSHIFT.code(), 0)])?;
+                device.emit(&[InputEvent::new(
+                    EventType::KEY,
+                    Key::KEY_LEFTSHIFT.code(),
+                    0,
+                )])?;
             }
 
             // Sync event
@@ -638,7 +653,6 @@ fn string_to_keypresses(device: &mut VirtualDevice, input: &str) -> Result<(), e
 
     Ok(())
 }
-
 
 fn create_virtual_keyboard() -> VirtualDevice {
     let mut keys = AttributeSet::new();

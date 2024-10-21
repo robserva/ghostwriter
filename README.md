@@ -14,11 +14,19 @@ You need an `OPENAI_API_KEY` environment variable set. I did this by adding it t
 export OPENAI_API_KEY=your-key-here
 ```
 
-Install by getting the binary to your remarkable. Then you have to ssh over and run it. Here is how to install and run (run these on the remarkable):
+Install by getting the binary to your remarkable. On your not-remarkable:
 
 ```sh
-# Install -- Fetch and make it executable
 wget https://github.com/awwaiid/ghostwriter/releases/latest/download/ghostwriter
+
+# Replace this ip address with your remarkable ip address
+scp ghostwriter root@192.168.1.117:
+```
+
+Then you have to ssh over and run it. Here is how to install and run (run these on the remarkable):
+
+```sh
+# Make it executable after the initial copy
 chmod +x ./ghostwriter
 
 ./ghostwriter --help       # Get the options

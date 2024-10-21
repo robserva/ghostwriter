@@ -14,9 +14,13 @@ You need an `OPENAI_API_KEY` environment variable set. I did this by adding it t
 export OPENAI_API_KEY=your-key-here
 ```
 
-Install by copying the binary to your remarkable. Then you have to ssh over and run it, like:
+Install by getting the binary to your remarkable. Then you have to ssh over and run it. Here is how to install and run (run these on the remarkable):
 
 ```sh
+# Install -- Fetch and make it executable
+wget https://github.com/awwaiid/ghostwriter/releases/latest/download/ghostwriter
+chmod +x ./ghostwriter
+
 ./ghostwriter --help       # Get the options
 ./ghostwriter text-assist  # Start a text/keyboard-replying session
 ```
@@ -40,6 +44,8 @@ Draw some stuff on your screen, and then trigger the assistant by *touching/tapp
 * **2024-10-20** - Text output and other modes
   * Slowly starting to rework the code to be less scratch-work, organized a bit
   * Now introduced `./ghostwriter text-assist` mode, uses a virtual keyboard to respond!
+* **2024-10-21** - Binary release build
+  * Got a github action all set to do binary builds
 
 ## Ideas
 * Matt showed me his iOS super calc that just came out, take inspiration from that!
@@ -61,6 +67,7 @@ Draw some stuff on your screen, and then trigger the assistant by *touching/tapp
 * Initial config
   * On first run, maybe create a config file
   * Could prompt for openai key and then write it into the file
+  * Maybe an auto-start, auto-recovery?
 
 ## References
 * Adapted screen capture from [reSnap](https://github.com/cloudsftp/reSnap)

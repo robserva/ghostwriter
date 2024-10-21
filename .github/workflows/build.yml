@@ -4,7 +4,7 @@ name: Remarkable Build
 
 jobs:
   remarkable_build:
-    name: Linux ARMv7
+    name: Remarkable Build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2

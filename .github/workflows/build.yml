@@ -1,13 +1,9 @@
-# on:
-#   release:
-#     types: [created]
-
 on: [push]
 
-name: ARMv7 build
+name: Remarkable Build
 
 jobs:
-  linux_arm7:
+  remarkable_build:
     name: Linux ARMv7
     runs-on: ubuntu-latest
     steps:
@@ -21,4 +17,10 @@ jobs:
         with:
           use-cross: true
           command: build
-          args: --target armv7-unknown-linux-gnueabihf
+          args: --target armv7-unknown-linux-gnueabihf --release
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            target/armv7-unknown-linux-gnueabihf/release/ghostwriter

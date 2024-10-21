@@ -75,6 +75,7 @@ fn text_assistant(args: &Args) -> Result<()> {
 
     loop {
         wait_for_trigger()?;
+        key_cmd_body(&mut keyboard);
         string_to_keypresses(&mut keyboard, ".")?;
 
         let screenshot_data = take_screenshot()?;

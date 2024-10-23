@@ -58,34 +58,49 @@ fn main() -> Result<()> {
     let args = Args::parse();
 
     match &args.command {
-        Some(Command::KeyboardTest) => keyboard_test(&args),
+        Some(Command::KeyboardTest) => keyboard_test(),
         Some(Command::TextAssist) => text_assistant(&args),
         None => ghostwriter(&args),
     }
 }
 
-fn keyboard_test(args: &Args) -> Result<()> {
-    virtual_keyboard()?;
+fn keyboard_test() -> Result<()> {
+    let mut keyboard = Keyboard::new();
+    sleep(Duration::from_secs(1)); // Wait for device to get warmed up
+    // let erase = "\x08".repeat(100);
+    // let input = erase.as_str();
+    // string_to_keypresses(&mut device, input)?;
+    // string_to_keypresses(&mut device, "\x1b")?;
+    // let input2 = "Hello, World! 123 @#$hidden\x08\x08\x08\n";
+    // string_to_keypresses(&mut device, input2)?;
+    // key_down(&mut device, Key::KEY_LEFTCTRL);
+    // sleep(Duration::from_secs(10));
+    // string_to_keypresses(&mut device, "4")?;
+    // key_up(&mut device, Key::KEY_LEFTCTRL);
+    keyboard.key_cmd_body()?;
+    keyboard.string_to_keypresses("hmmm\n")?;
     Ok(())
 }
 
 fn text_assistant(args: &Args) -> Result<()> {
-    let mut keyboard = create_virtual_keyboard();
+    let mut keyboard = Keyboard::new();
 
     loop {
+        println!("Waiting for trigger (hand-touch in the upper-right corner)...");
         wait_for_trigger()?;
-        key_cmd_body(&mut keyboard);
-        string_to_keypresses(&mut keyboard, ".")?;
+        keyboard.key_cmd_body()?;
+        keyboard.key_cmd_body()?;
+        keyboard.string_to_keypresses(".")?;
 
         let screenshot_data = take_screenshot()?;
-        string_to_keypresses(&mut keyboard, ".")?;
+        keyboard.string_to_keypresses(".")?;
 
         // Save the PNG image to a file
         let png_filename = "tmp/screenshot.png";
         let mut png_file = File::create(png_filename)?;
         png_file.write_all(&screenshot_data)?;
         println!("PNG image saved to {}", png_filename);
-        string_to_keypresses(&mut keyboard, ".")?;
+        keyboard.string_to_keypresses(".")?;
 
         let base64_image = general_purpose::STANDARD.encode(&screenshot_data);
 
@@ -94,7 +109,7 @@ fn text_assistant(args: &Args) -> Result<()> {
         let mut base64_file = File::create(base64_filename)?;
         base64_file.write_all(base64_image.as_bytes())?;
         println!("Base64 encoded image saved to {}", base64_filename);
-        string_to_keypresses(&mut keyboard, ".")?;
+        keyboard.string_to_keypresses(".")?;
 
         if args.no_submit {
             println!("Image not submitted to OpenAI due to --no-submit flag");
@@ -117,7 +132,7 @@ fn text_assistant(args: &Args) -> Result<()> {
             }));
 
         println!("Sending request to OpenAI API...");
-        string_to_keypresses(&mut keyboard, ".")?;
+        keyboard.string_to_keypresses(".")?;
 
         let response = ureq::post("https://api.openai.com/v1/chat/completions")
             .set("Authorization", &format!("Bearer {}", api_key))
@@ -126,10 +141,10 @@ fn text_assistant(args: &Args) -> Result<()> {
 
         match response {
             Ok(response) => {
-                string_to_keypresses(&mut keyboard, ".")?;
+                keyboard.string_to_keypresses(".")?;
                 let json: serde_json::Value = response.into_json()?;
                 println!("API Response: {}", json);
-                string_to_keypresses(&mut keyboard, ".")?;
+                keyboard.string_to_keypresses(".")?;
 
                 let raw_output = json["choices"][0]["message"]["content"].as_str().unwrap();
                 let json_output = serde_json::from_str::<serde_json::Value>(raw_output)?;
@@ -142,13 +157,13 @@ fn text_assistant(args: &Args) -> Result<()> {
                 println!("Text Data: {}", text_data);
 
                 println!("Writing output back onto the screen");
-                key_cmd_body(&mut keyboard);
+                keyboard.key_cmd_body()?;
 
                 // Erase the progress dots
-                string_to_keypresses(&mut keyboard, "\x08\x08\x08\x08\x08\x08\x08")?;
+                keyboard.string_to_keypresses("\x08\x08\x08\x08\x08\x08\x08")?;
 
-                string_to_keypresses(&mut keyboard, text_data)?;
-                string_to_keypresses(&mut keyboard, "\n\n")?;
+                keyboard.string_to_keypresses(text_data)?;
+                keyboard.string_to_keypresses("\n\n")?;
             }
             Err(ureq::Error::Status(code, response)) => {
                 println!("HTTP Error: {} {}", code, response.status_text());
@@ -171,6 +186,7 @@ fn ghostwriter(args: &Args) -> Result<()> {
     let mut device = Device::open("/dev/input/event1")?;
 
     loop {
+        println!("Waiting for trigger (hand-touch in the upper-right corner)...");
         wait_for_trigger()?;
 
         let screenshot_data = take_screenshot()?;
@@ -194,10 +210,6 @@ fn ghostwriter(args: &Args) -> Result<()> {
         let mut base64_file = File::create(base64_filename)?;
         base64_file.write_all(base64_image.as_bytes())?;
         println!("Base64 encoded image saved to {}", base64_filename);
-
-        // Example: Draw a simple line
-        // let points = vec![(100, 100), (200, 200), (300, 300)];
-        // draw_on_screen()?;
 
         if args.no_submit {
             println!("Image not submitted to OpenAI due to --no-submit flag");
@@ -260,15 +272,6 @@ fn ghostwriter(args: &Args) -> Result<()> {
                     svg_to_bitmap(svg_data, REMARKABLE_WIDTH as u32, REMARKABLE_HEIGHT as u32)?;
                 write_bitmap_to_file(&bitmap, "tmp/debug_bitmap.png")?;
 
-                // Iterate through the bitmap and draw dots where needed
-                // for (y, row) in bitmap.iter().enumerate() {
-                //     for (x, &pixel) in row.iter().enumerate() {
-                //         if pixel {
-                //             draw_dot(&mut device, screen_to_input((x as i32, y as i32)))?;
-                //         }
-                //     }
-                // }
-
                 println!("Drawing output back onto the screen");
                 let mut is_pen_down = false;
                 for (y, row) in bitmap.iter().enumerate() {
@@ -281,7 +284,7 @@ fn ghostwriter(args: &Args) -> Result<()> {
                                 thread::sleep(time::Duration::from_millis(1));
                             }
                             draw_goto_xy(&mut device, screen_to_input((x as i32, y as i32)))?;
-                            // draw_goto_xy(&mut device, screen_to_input((x as i32 + 1, y as i32)))?;
+                            draw_goto_xy(&mut device, screen_to_input((x as i32 + 1, y as i32)))?;
                             // draw_goto_xy(&mut device, screen_to_input((x as i32 + 2, y as i32)))?;
                         } else {
                             if is_pen_down {
@@ -518,16 +521,6 @@ fn screen_to_input((x, y): (i32, i32)) -> (i32, i32) {
     (x_input, y_input)
 }
 
-fn draw_on_screen() -> Result<()> {
-    let mut device = Device::open("/dev/input/event1")?; // Pen input device
-
-    for x in 0..100 {
-        draw_dot(&mut device, screen_to_input((1000 + x, 1000)))?;
-    }
-
-    Ok(())
-}
-
 fn svg_to_bitmap(svg_data: &str, width: u32, height: u32) -> Result<Vec<Vec<bool>>> {
     let mut opt = Options::default();
     let mut fontdb = fontdb::Database::new();
@@ -606,294 +599,290 @@ use std::time::Duration;
 
 use std::collections::HashMap;
 
-fn key_down(device: &mut VirtualDevice, key: Key) -> Result<()> {
-    device.emit(&[(InputEvent::new(EventType::KEY, key.code(), 1))])?;
-    Ok(())
+
+pub struct Keyboard {
+    device: VirtualDevice,
+    key_map: HashMap<char, (Key, bool)>,
 }
 
-fn key_up(device: &mut VirtualDevice, key: Key) -> Result<()> {
-    device.emit(&[(InputEvent::new(EventType::KEY, key.code(), 0))])?;
-    Ok(())
-}
-
-fn string_to_keypresses(device: &mut VirtualDevice, input: &str) -> Result<(), evdev::Error> {
-    let key_map = create_key_map();
-
-    for c in input.chars() {
-        if let Some(&(key, shift)) = key_map.get(&c) {
-            if shift {
-                // Press Shift
-                device.emit(&[InputEvent::new(
-                    EventType::KEY,
-                    Key::KEY_LEFTSHIFT.code(),
-                    1,
-                )])?;
-            }
-
-            // Press key
-            device.emit(&[InputEvent::new(EventType::KEY, key.code(), 1)])?;
-
-            // Release key
-            device.emit(&[InputEvent::new(EventType::KEY, key.code(), 0)])?;
-
-            if shift {
-                // Release Shift
-                device.emit(&[InputEvent::new(
-                    EventType::KEY,
-                    Key::KEY_LEFTSHIFT.code(),
-                    0,
-                )])?;
-            }
-
-            // Sync event
-            device.emit(&[InputEvent::new(EventType::SYNCHRONIZATION, 0, 0)])?;
-            thread::sleep(time::Duration::from_millis(10));
+impl Keyboard {
+    pub fn new() -> Self {
+        Self {
+            device: Self::create_virtual_device(),
+            key_map: Self::create_key_map(),
         }
     }
 
-    Ok(())
-}
+    fn create_virtual_device() -> VirtualDevice {
+        let mut keys = AttributeSet::new();
 
-fn create_virtual_keyboard() -> VirtualDevice {
-    let mut keys = AttributeSet::new();
+        keys.insert(Key::KEY_A);
+        keys.insert(Key::KEY_B);
+        keys.insert(Key::KEY_C);
+        keys.insert(Key::KEY_D);
+        keys.insert(Key::KEY_E);
+        keys.insert(Key::KEY_F);
+        keys.insert(Key::KEY_G);
+        keys.insert(Key::KEY_H);
+        keys.insert(Key::KEY_I);
+        keys.insert(Key::KEY_J);
+        keys.insert(Key::KEY_K);
+        keys.insert(Key::KEY_L);
+        keys.insert(Key::KEY_M);
+        keys.insert(Key::KEY_N);
+        keys.insert(Key::KEY_O);
+        keys.insert(Key::KEY_P);
+        keys.insert(Key::KEY_Q);
+        keys.insert(Key::KEY_R);
+        keys.insert(Key::KEY_S);
+        keys.insert(Key::KEY_T);
+        keys.insert(Key::KEY_U);
+        keys.insert(Key::KEY_V);
+        keys.insert(Key::KEY_W);
+        keys.insert(Key::KEY_X);
+        keys.insert(Key::KEY_Y);
+        keys.insert(Key::KEY_Z);
 
-    keys.insert(Key::KEY_A);
-    keys.insert(Key::KEY_B);
-    keys.insert(Key::KEY_C);
-    keys.insert(Key::KEY_D);
-    keys.insert(Key::KEY_E);
-    keys.insert(Key::KEY_F);
-    keys.insert(Key::KEY_G);
-    keys.insert(Key::KEY_H);
-    keys.insert(Key::KEY_I);
-    keys.insert(Key::KEY_J);
-    keys.insert(Key::KEY_K);
-    keys.insert(Key::KEY_L);
-    keys.insert(Key::KEY_M);
-    keys.insert(Key::KEY_N);
-    keys.insert(Key::KEY_O);
-    keys.insert(Key::KEY_P);
-    keys.insert(Key::KEY_Q);
-    keys.insert(Key::KEY_R);
-    keys.insert(Key::KEY_S);
-    keys.insert(Key::KEY_T);
-    keys.insert(Key::KEY_U);
-    keys.insert(Key::KEY_V);
-    keys.insert(Key::KEY_W);
-    keys.insert(Key::KEY_X);
-    keys.insert(Key::KEY_Y);
-    keys.insert(Key::KEY_Z);
+        keys.insert(Key::KEY_1);
+        keys.insert(Key::KEY_2);
+        keys.insert(Key::KEY_3);
+        keys.insert(Key::KEY_4);
+        keys.insert(Key::KEY_5);
+        keys.insert(Key::KEY_6);
+        keys.insert(Key::KEY_7);
+        keys.insert(Key::KEY_8);
+        keys.insert(Key::KEY_9);
+        keys.insert(Key::KEY_0);
 
-    keys.insert(Key::KEY_1);
-    keys.insert(Key::KEY_2);
-    keys.insert(Key::KEY_3);
-    keys.insert(Key::KEY_4);
-    keys.insert(Key::KEY_5);
-    keys.insert(Key::KEY_6);
-    keys.insert(Key::KEY_7);
-    keys.insert(Key::KEY_8);
-    keys.insert(Key::KEY_9);
-    keys.insert(Key::KEY_0);
+        // Add punctuation and special keys
+        keys.insert(Key::KEY_SPACE);
+        keys.insert(Key::KEY_ENTER);
+        keys.insert(Key::KEY_TAB);
+        keys.insert(Key::KEY_LEFTSHIFT);
+        keys.insert(Key::KEY_MINUS);
+        keys.insert(Key::KEY_EQUAL);
+        keys.insert(Key::KEY_LEFTBRACE);
+        keys.insert(Key::KEY_RIGHTBRACE);
+        keys.insert(Key::KEY_BACKSLASH);
+        keys.insert(Key::KEY_SEMICOLON);
+        keys.insert(Key::KEY_APOSTROPHE);
+        keys.insert(Key::KEY_GRAVE);
+        keys.insert(Key::KEY_COMMA);
+        keys.insert(Key::KEY_DOT);
+        keys.insert(Key::KEY_SLASH);
 
-    // Add punctuation and special keys
-    keys.insert(Key::KEY_SPACE);
-    keys.insert(Key::KEY_ENTER);
-    keys.insert(Key::KEY_TAB);
-    keys.insert(Key::KEY_LEFTSHIFT);
-    keys.insert(Key::KEY_MINUS);
-    keys.insert(Key::KEY_EQUAL);
-    keys.insert(Key::KEY_LEFTBRACE);
-    keys.insert(Key::KEY_RIGHTBRACE);
-    keys.insert(Key::KEY_BACKSLASH);
-    keys.insert(Key::KEY_SEMICOLON);
-    keys.insert(Key::KEY_APOSTROPHE);
-    keys.insert(Key::KEY_GRAVE);
-    keys.insert(Key::KEY_COMMA);
-    keys.insert(Key::KEY_DOT);
-    keys.insert(Key::KEY_SLASH);
+        keys.insert(Key::KEY_BACKSPACE);
+        keys.insert(Key::KEY_ESC);
 
-    keys.insert(Key::KEY_BACKSPACE);
-    keys.insert(Key::KEY_ESC);
+        keys.insert(Key::KEY_LEFTCTRL);
+        keys.insert(Key::KEY_LEFTALT);
 
-    keys.insert(Key::KEY_LEFTCTRL);
-    keys.insert(Key::KEY_LEFTALT);
-
-    VirtualDeviceBuilder::new()
-        .unwrap()
-        .name("Virtual Keyboard")
-        .with_keys(&keys)
-        .unwrap()
-        .build()
-        .unwrap()
-}
-
-fn create_key_map() -> HashMap<char, (Key, bool)> {
-    let mut key_map = HashMap::new();
-
-    // Lowercase letters
-    key_map.insert('a', (Key::KEY_A, false));
-    key_map.insert('b', (Key::KEY_B, false));
-    key_map.insert('c', (Key::KEY_C, false));
-    key_map.insert('d', (Key::KEY_D, false));
-    key_map.insert('e', (Key::KEY_E, false));
-    key_map.insert('f', (Key::KEY_F, false));
-    key_map.insert('g', (Key::KEY_G, false));
-    key_map.insert('h', (Key::KEY_H, false));
-    key_map.insert('i', (Key::KEY_I, false));
-    key_map.insert('j', (Key::KEY_J, false));
-    key_map.insert('k', (Key::KEY_K, false));
-    key_map.insert('l', (Key::KEY_L, false));
-    key_map.insert('m', (Key::KEY_M, false));
-    key_map.insert('n', (Key::KEY_N, false));
-    key_map.insert('o', (Key::KEY_O, false));
-    key_map.insert('p', (Key::KEY_P, false));
-    key_map.insert('q', (Key::KEY_Q, false));
-    key_map.insert('r', (Key::KEY_R, false));
-    key_map.insert('s', (Key::KEY_S, false));
-    key_map.insert('t', (Key::KEY_T, false));
-    key_map.insert('u', (Key::KEY_U, false));
-    key_map.insert('v', (Key::KEY_V, false));
-    key_map.insert('w', (Key::KEY_W, false));
-    key_map.insert('x', (Key::KEY_X, false));
-    key_map.insert('y', (Key::KEY_Y, false));
-    key_map.insert('z', (Key::KEY_Z, false));
-
-    // Uppercase letters
-    key_map.insert('A', (Key::KEY_A, true));
-    key_map.insert('B', (Key::KEY_B, true));
-    key_map.insert('C', (Key::KEY_C, true));
-    key_map.insert('D', (Key::KEY_D, true));
-    key_map.insert('E', (Key::KEY_E, true));
-    key_map.insert('F', (Key::KEY_F, true));
-    key_map.insert('G', (Key::KEY_G, true));
-    key_map.insert('H', (Key::KEY_H, true));
-    key_map.insert('I', (Key::KEY_I, true));
-    key_map.insert('J', (Key::KEY_J, true));
-    key_map.insert('K', (Key::KEY_K, true));
-    key_map.insert('L', (Key::KEY_L, true));
-    key_map.insert('M', (Key::KEY_M, true));
-    key_map.insert('N', (Key::KEY_N, true));
-    key_map.insert('O', (Key::KEY_O, true));
-    key_map.insert('P', (Key::KEY_P, true));
-    key_map.insert('Q', (Key::KEY_Q, true));
-    key_map.insert('R', (Key::KEY_R, true));
-    key_map.insert('S', (Key::KEY_S, true));
-    key_map.insert('T', (Key::KEY_T, true));
-    key_map.insert('U', (Key::KEY_U, true));
-    key_map.insert('V', (Key::KEY_V, true));
-    key_map.insert('W', (Key::KEY_W, true));
-    key_map.insert('X', (Key::KEY_X, true));
-    key_map.insert('Y', (Key::KEY_Y, true));
-    key_map.insert('Z', (Key::KEY_Z, true));
-
-    // Numbers
-    key_map.insert('0', (Key::KEY_0, false));
-    key_map.insert('1', (Key::KEY_1, false));
-    key_map.insert('2', (Key::KEY_2, false));
-    key_map.insert('3', (Key::KEY_3, false));
-    key_map.insert('4', (Key::KEY_4, false));
-    key_map.insert('5', (Key::KEY_5, false));
-    key_map.insert('6', (Key::KEY_6, false));
-    key_map.insert('7', (Key::KEY_7, false));
-    key_map.insert('8', (Key::KEY_8, false));
-    key_map.insert('9', (Key::KEY_9, false));
-
-    // Special characters
-    key_map.insert('!', (Key::KEY_1, true));
-    key_map.insert('@', (Key::KEY_2, true));
-    key_map.insert('#', (Key::KEY_3, true));
-    key_map.insert('$', (Key::KEY_4, true));
-    key_map.insert('%', (Key::KEY_5, true));
-    key_map.insert('^', (Key::KEY_6, true));
-    key_map.insert('&', (Key::KEY_7, true));
-    key_map.insert('*', (Key::KEY_8, true));
-    key_map.insert('(', (Key::KEY_9, true));
-    key_map.insert(')', (Key::KEY_0, true));
-    key_map.insert('_', (Key::KEY_MINUS, true));
-    key_map.insert('+', (Key::KEY_EQUAL, true));
-    key_map.insert('{', (Key::KEY_LEFTBRACE, true));
-    key_map.insert('}', (Key::KEY_RIGHTBRACE, true));
-    key_map.insert('|', (Key::KEY_BACKSLASH, true));
-    key_map.insert(':', (Key::KEY_SEMICOLON, true));
-    key_map.insert('"', (Key::KEY_APOSTROPHE, true));
-    key_map.insert('<', (Key::KEY_COMMA, true));
-    key_map.insert('>', (Key::KEY_DOT, true));
-    key_map.insert('?', (Key::KEY_SLASH, true));
-    key_map.insert('~', (Key::KEY_GRAVE, true));
-
-    // Common punctuation
-    key_map.insert('-', (Key::KEY_MINUS, false));
-    key_map.insert('=', (Key::KEY_EQUAL, false));
-    key_map.insert('[', (Key::KEY_LEFTBRACE, false));
-    key_map.insert(']', (Key::KEY_RIGHTBRACE, false));
-    key_map.insert('\\', (Key::KEY_BACKSLASH, false));
-    key_map.insert(';', (Key::KEY_SEMICOLON, false));
-    key_map.insert('\'', (Key::KEY_APOSTROPHE, false));
-    key_map.insert(',', (Key::KEY_COMMA, false));
-    key_map.insert('.', (Key::KEY_DOT, false));
-    key_map.insert('/', (Key::KEY_SLASH, false));
-    key_map.insert('`', (Key::KEY_GRAVE, false));
-
-    // Whitespace
-    key_map.insert(' ', (Key::KEY_SPACE, false));
-    key_map.insert('\t', (Key::KEY_TAB, false));
-    key_map.insert('\n', (Key::KEY_ENTER, false));
-
-    // Action keys, such as backspace, escape, ctrl, alt
-    key_map.insert('\x08', (Key::KEY_BACKSPACE, false));
-    key_map.insert('\x1b', (Key::KEY_ESC, false));
-
-    key_map
-}
-
-fn key_cmd(device: &mut VirtualDevice, button: &str, shift: bool) -> Result<()> {
-    key_down(device, Key::KEY_LEFTCTRL);
-    if shift {
-        key_down(device, Key::KEY_LEFTSHIFT);
+        VirtualDeviceBuilder::new()
+            .unwrap()
+            .name("Virtual Keyboard")
+            .with_keys(&keys)
+            .unwrap()
+            .build()
+            .unwrap()
     }
-    string_to_keypresses(device, button);
-    if shift {
-        key_up(device, Key::KEY_LEFTSHIFT);
+
+    fn create_key_map() -> HashMap<char, (Key, bool)> {
+        let mut key_map = HashMap::new();
+
+        // Lowercase letters
+        key_map.insert('a', (Key::KEY_A, false));
+        key_map.insert('b', (Key::KEY_B, false));
+        key_map.insert('c', (Key::KEY_C, false));
+        key_map.insert('d', (Key::KEY_D, false));
+        key_map.insert('e', (Key::KEY_E, false));
+        key_map.insert('f', (Key::KEY_F, false));
+        key_map.insert('g', (Key::KEY_G, false));
+        key_map.insert('h', (Key::KEY_H, false));
+        key_map.insert('i', (Key::KEY_I, false));
+        key_map.insert('j', (Key::KEY_J, false));
+        key_map.insert('k', (Key::KEY_K, false));
+        key_map.insert('l', (Key::KEY_L, false));
+        key_map.insert('m', (Key::KEY_M, false));
+        key_map.insert('n', (Key::KEY_N, false));
+        key_map.insert('o', (Key::KEY_O, false));
+        key_map.insert('p', (Key::KEY_P, false));
+        key_map.insert('q', (Key::KEY_Q, false));
+        key_map.insert('r', (Key::KEY_R, false));
+        key_map.insert('s', (Key::KEY_S, false));
+        key_map.insert('t', (Key::KEY_T, false));
+        key_map.insert('u', (Key::KEY_U, false));
+        key_map.insert('v', (Key::KEY_V, false));
+        key_map.insert('w', (Key::KEY_W, false));
+        key_map.insert('x', (Key::KEY_X, false));
+        key_map.insert('y', (Key::KEY_Y, false));
+        key_map.insert('z', (Key::KEY_Z, false));
+
+        // Uppercase letters
+        key_map.insert('A', (Key::KEY_A, true));
+        key_map.insert('B', (Key::KEY_B, true));
+        key_map.insert('C', (Key::KEY_C, true));
+        key_map.insert('D', (Key::KEY_D, true));
+        key_map.insert('E', (Key::KEY_E, true));
+        key_map.insert('F', (Key::KEY_F, true));
+        key_map.insert('G', (Key::KEY_G, true));
+        key_map.insert('H', (Key::KEY_H, true));
+        key_map.insert('I', (Key::KEY_I, true));
+        key_map.insert('J', (Key::KEY_J, true));
+        key_map.insert('K', (Key::KEY_K, true));
+        key_map.insert('L', (Key::KEY_L, true));
+        key_map.insert('M', (Key::KEY_M, true));
+        key_map.insert('N', (Key::KEY_N, true));
+        key_map.insert('O', (Key::KEY_O, true));
+        key_map.insert('P', (Key::KEY_P, true));
+        key_map.insert('Q', (Key::KEY_Q, true));
+        key_map.insert('R', (Key::KEY_R, true));
+        key_map.insert('S', (Key::KEY_S, true));
+        key_map.insert('T', (Key::KEY_T, true));
+        key_map.insert('U', (Key::KEY_U, true));
+        key_map.insert('V', (Key::KEY_V, true));
+        key_map.insert('W', (Key::KEY_W, true));
+        key_map.insert('X', (Key::KEY_X, true));
+        key_map.insert('Y', (Key::KEY_Y, true));
+        key_map.insert('Z', (Key::KEY_Z, true));
+
+        // Numbers
+        key_map.insert('0', (Key::KEY_0, false));
+        key_map.insert('1', (Key::KEY_1, false));
+        key_map.insert('2', (Key::KEY_2, false));
+        key_map.insert('3', (Key::KEY_3, false));
+        key_map.insert('4', (Key::KEY_4, false));
+        key_map.insert('5', (Key::KEY_5, false));
+        key_map.insert('6', (Key::KEY_6, false));
+        key_map.insert('7', (Key::KEY_7, false));
+        key_map.insert('8', (Key::KEY_8, false));
+        key_map.insert('9', (Key::KEY_9, false));
+
+        // Special characters
+        key_map.insert('!', (Key::KEY_1, true));
+        key_map.insert('@', (Key::KEY_2, true));
+        key_map.insert('#', (Key::KEY_3, true));
+        key_map.insert('$', (Key::KEY_4, true));
+        key_map.insert('%', (Key::KEY_5, true));
+        key_map.insert('^', (Key::KEY_6, true));
+        key_map.insert('&', (Key::KEY_7, true));
+        key_map.insert('*', (Key::KEY_8, true));
+        key_map.insert('(', (Key::KEY_9, true));
+        key_map.insert(')', (Key::KEY_0, true));
+        key_map.insert('_', (Key::KEY_MINUS, true));
+        key_map.insert('+', (Key::KEY_EQUAL, true));
+        key_map.insert('{', (Key::KEY_LEFTBRACE, true));
+        key_map.insert('}', (Key::KEY_RIGHTBRACE, true));
+        key_map.insert('|', (Key::KEY_BACKSLASH, true));
+        key_map.insert(':', (Key::KEY_SEMICOLON, true));
+        key_map.insert('"', (Key::KEY_APOSTROPHE, true));
+        key_map.insert('<', (Key::KEY_COMMA, true));
+        key_map.insert('>', (Key::KEY_DOT, true));
+        key_map.insert('?', (Key::KEY_SLASH, true));
+        key_map.insert('~', (Key::KEY_GRAVE, true));
+
+        // Common punctuation
+        key_map.insert('-', (Key::KEY_MINUS, false));
+        key_map.insert('=', (Key::KEY_EQUAL, false));
+        key_map.insert('[', (Key::KEY_LEFTBRACE, false));
+        key_map.insert(']', (Key::KEY_RIGHTBRACE, false));
+        key_map.insert('\\', (Key::KEY_BACKSLASH, false));
+        key_map.insert(';', (Key::KEY_SEMICOLON, false));
+        key_map.insert('\'', (Key::KEY_APOSTROPHE, false));
+        key_map.insert(',', (Key::KEY_COMMA, false));
+        key_map.insert('.', (Key::KEY_DOT, false));
+        key_map.insert('/', (Key::KEY_SLASH, false));
+        key_map.insert('`', (Key::KEY_GRAVE, false));
+
+        // Whitespace
+        key_map.insert(' ', (Key::KEY_SPACE, false));
+        key_map.insert('\t', (Key::KEY_TAB, false));
+        key_map.insert('\n', (Key::KEY_ENTER, false));
+
+        // Action keys, such as backspace, escape, ctrl, alt
+        key_map.insert('\x08', (Key::KEY_BACKSPACE, false));
+        key_map.insert('\x1b', (Key::KEY_ESC, false));
+
+        key_map
     }
-    key_up(device, Key::KEY_LEFTCTRL);
-    Ok(())
+
+    fn key_down(&mut self, key: Key) -> Result<()> {
+        self.device.emit(&[(InputEvent::new(EventType::KEY, key.code(), 1))])?;
+        Ok(())
+    }
+
+    fn key_up(&mut self, key: Key) -> Result<()> {
+        self.device.emit(&[(InputEvent::new(EventType::KEY, key.code(), 0))])?;
+        Ok(())
+    }
+
+    fn string_to_keypresses(&mut self, input: &str) -> Result<(), evdev::Error> {
+        for c in input.chars() {
+            if let Some(&(key, shift)) = self.key_map.get(&c) {
+                if shift {
+                    // Press Shift
+                    self.device.emit(&[InputEvent::new(
+                            EventType::KEY,
+                            Key::KEY_LEFTSHIFT.code(),
+                            1,
+                    )])?;
+                }
+
+                // Press key
+                self.device.emit(&[InputEvent::new(EventType::KEY, key.code(), 1)])?;
+
+                // Release key
+                self.device.emit(&[InputEvent::new(EventType::KEY, key.code(), 0)])?;
+
+                if shift {
+                    // Release Shift
+                    self.device.emit(&[InputEvent::new(
+                            EventType::KEY,
+                            Key::KEY_LEFTSHIFT.code(),
+                            0,
+                    )])?;
+                }
+
+                // Sync event
+                self.device.emit(&[InputEvent::new(EventType::SYNCHRONIZATION, 0, 0)])?;
+                thread::sleep(time::Duration::from_millis(10));
+            }
+        }
+
+        Ok(())
+    }
+
+    fn key_cmd(&mut self, button: &str, shift: bool) -> Result<()> {
+        self.key_down(Key::KEY_LEFTCTRL)?;
+        if shift {
+            self.key_down(Key::KEY_LEFTSHIFT)?;
+        }
+        self.string_to_keypresses(button)?;
+        if shift {
+            self.key_up(Key::KEY_LEFTSHIFT)?;
+        }
+        self.key_up(Key::KEY_LEFTCTRL)?;
+        Ok(())
+    }
+
+    fn key_cmd_title(&mut self) -> Result<()> {
+        self.key_cmd("1", false)?;
+        Ok(())
+    }
+
+    fn key_cmd_subheading(&mut self) -> Result<()> {
+        self.key_cmd("2", false)?;
+        Ok(())
+    }
+
+    fn key_cmd_body(&mut self) -> Result<()> {
+        self.key_cmd("3", false)?;
+        Ok(())
+    }
+
+    fn key_cmd_bullet(&mut self) -> Result<()> {
+        self.key_cmd("4", false)?;
+        Ok(())
+    }
 }
 
-fn key_cmd_title(device: &mut VirtualDevice) -> Result<()> {
-    key_cmd(device, "1", false);
-    Ok(())
-}
 
-fn key_cmd_subheading(device: &mut VirtualDevice) -> Result<()> {
-    key_cmd(device, "2", false);
-    Ok(())
-}
-
-fn key_cmd_body(device: &mut VirtualDevice) -> Result<()> {
-    key_cmd(device, "3", false);
-    Ok(())
-}
-
-fn key_cmd_bullet(device: &mut VirtualDevice) -> Result<()> {
-    key_cmd(device, "4", false);
-    Ok(())
-}
-
-
-fn virtual_keyboard() -> Result<(), evdev::Error> {
-    let mut device = create_virtual_keyboard();
-    sleep(Duration::from_secs(1)); // Wait for device to get warmed up
-    // let erase = "\x08".repeat(100);
-    // let input = erase.as_str();
-    // string_to_keypresses(&mut device, input)?;
-    // string_to_keypresses(&mut device, "\x1b")?;
-    // let input2 = "Hello, World! 123 @#$hidden\x08\x08\x08\n";
-    // string_to_keypresses(&mut device, input2)?;
-    // key_down(&mut device, Key::KEY_LEFTCTRL);
-    // sleep(Duration::from_secs(10));
-    // string_to_keypresses(&mut device, "4")?;
-    // key_up(&mut device, Key::KEY_LEFTCTRL);
-    key_cmd_body(&mut device);
-    string_to_keypresses(&mut device, "hmmm\n");
-    Ok(())
-}

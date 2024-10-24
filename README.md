@@ -54,16 +54,19 @@ Draw some stuff on your screen, and then trigger the assistant by *touching/tapp
   * Now introduced `./ghostwriter text-assist` mode, uses a virtual keyboard to respond!
 * **2024-10-21** - Binary release build
   * Got a github action all set to do binary builds
+* **2024-10-23** - Code shuffle
+  * Doing a bit of refactoring, grouping utilities into separate files
+  * Yesterday a new Anthropic model came out (3.5-sonnet-new) which might be better at spacial awareness on the screen, so next up is to try that out in drawing-mode
 
 ## Ideas
-* Matt showed me his iOS super calc that just came out, take inspiration from that!
+* [DONE] Matt showed me his iOS super calc that just came out, take inspiration from that!
   * This already kinda works, try writing an equation
-* A gesture or some content to trigger the request
+* [DONE] A gesture or some content to trigger the request
   * like an x in a certain place
   * or a hover circle -- doesn't need to be an actual touch event per se
-* Take a screenshot, feed it into a vision model, get some output, put the output back on the screen somehow
-* Like with actual writing; or heck it can draw a million dots on the screen if it does it fast
-* OK ... we can also send *keyboard* events! That means we can use the Remarkable text area. This is an awkward and weird text area that lives on a different layer from the drawing
+* [DONE] Take a screenshot, feed it into a vision model, get some output, put the output back on the screen somehow
+* [DONE] Like with actual writing; or heck it can draw a million dots on the screen if it does it fast
+* [DONE] OK ... we can also send *keyboard* events! That means we can use the Remarkable text area. This is an awkward and weird text area that lives on a different layer from the drawing
   * So maybe we can say drawing = human, text = machine
   * Probably a lot easier to erase too...
 * Prompt library
@@ -76,6 +79,11 @@ Draw some stuff on your screen, and then trigger the assistant by *touching/tapp
   * On first run, maybe create a config file
   * Could prompt for openai key and then write it into the file
   * Maybe an auto-start, auto-recovery?
+* Generate Diagrams
+  * Let one of the outputs be graphviz and/or mermaid, and then turn that into an SVG/png that it then outputs to the screen
+* External stuff
+  * Let it look things up
+  * Let it send me stuff ... emails, slacks
 
 ## References
 * Adapted screen capture from [reSnap](https://github.com/cloudsftp/reSnap)

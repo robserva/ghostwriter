@@ -1,10 +1,6 @@
 use anyhow::Result;
-use base64::{engine::general_purpose, Engine as _};
 use image::GrayImage;
 use serde_json::json;
-use std::fs::File;
-use std::io::Write;
-use std::io::{Read, Seek};
 use std::{thread, time};
 
 use clap::{Parser, Subcommand};
@@ -15,14 +11,17 @@ use resvg::usvg;
 use resvg::usvg::{fontdb, Options, Tree};
 use std::sync::Arc;
 
-use std::process; // ::Command;
+use std::thread::sleep;
+use std::time::Duration;
 
 use evdev::{Device, EventType, InputEvent};
 
-const WIDTH: usize = 1872;
-const HEIGHT: usize = 1404;
-const BYTES_PER_PIXEL: usize = 2;
-const WINDOW_BYTES: usize = WIDTH * HEIGHT * BYTES_PER_PIXEL;
+mod keyboard;
+use crate::keyboard::Keyboard;
+
+mod screenshot;
+use crate::screenshot::Screenshot;
+
 const INPUT_WIDTH: usize = 15725;
 const INPUT_HEIGHT: usize = 20966;
 
@@ -67,16 +66,16 @@ fn main() -> Result<()> {
 fn keyboard_test() -> Result<()> {
     let mut keyboard = Keyboard::new();
     sleep(Duration::from_secs(1)); // Wait for device to get warmed up
-    // let erase = "\x08".repeat(100);
-    // let input = erase.as_str();
-    // string_to_keypresses(&mut device, input)?;
-    // string_to_keypresses(&mut device, "\x1b")?;
-    // let input2 = "Hello, World! 123 @#$hidden\x08\x08\x08\n";
-    // string_to_keypresses(&mut device, input2)?;
-    // key_down(&mut device, Key::KEY_LEFTCTRL);
-    // sleep(Duration::from_secs(10));
-    // string_to_keypresses(&mut device, "4")?;
-    // key_up(&mut device, Key::KEY_LEFTCTRL);
+                                   // let erase = "\x08".repeat(100);
+                                   // let input = erase.as_str();
+                                   // string_to_keypresses(&mut device, input)?;
+                                   // string_to_keypresses(&mut device, "\x1b")?;
+                                   // let input2 = "Hello, World! 123 @#$hidden\x08\x08\x08\n";
+                                   // string_to_keypresses(&mut device, input2)?;
+                                   // key_down(&mut device, Key::KEY_LEFTCTRL);
+                                   // sleep(Duration::from_secs(10));
+                                   // string_to_keypresses(&mut device, "4")?;
+                                   // key_up(&mut device, Key::KEY_LEFTCTRL);
     keyboard.key_cmd_body()?;
     keyboard.string_to_keypresses("hmmm\n")?;
     Ok(())
@@ -92,7 +91,7 @@ fn text_assistant(args: &Args) -> Result<()> {
         keyboard.key_cmd_body()?;
         keyboard.string_to_keypresses(".")?;
 
-        let mut screenshot = Screenshot::new()?;
+        let screenshot = Screenshot::new()?;
 
         keyboard.string_to_keypresses(".")?;
 
@@ -183,7 +182,7 @@ fn ghostwriter(args: &Args) -> Result<()> {
         println!("Waiting for trigger (hand-touch in the upper-right corner)...");
         wait_for_trigger()?;
 
-        let mut screenshot = Screenshot::new()?;
+        let screenshot = Screenshot::new()?;
 
         draw_line(
             &mut device,
@@ -309,140 +308,6 @@ fn ghostwriter(args: &Args) -> Result<()> {
 
 use image;
 
-struct Screenshot {
-    data: Vec<u8>
-}
-
-impl Screenshot {
-    fn new() -> Result<Screenshot> {
-        let screenshot_data = Self::take_screenshot()?;
-        Ok(Screenshot {
-            data: screenshot_data
-        })
-    }
-
-    fn take_screenshot() -> Result<Vec<u8>> {
-        // Find xochitl's process
-        let pid = Self::find_xochitl_pid()?;
-
-        // Find framebuffer location in memory
-        let skip_bytes = Self::find_framebuffer_address(&pid)?;
-
-        // Read the framebuffer data
-        let screenshot_data = Self::read_framebuffer(&pid, skip_bytes)?;
-
-        // Process the image data (transpose, color correction, etc.)
-        let processed_data = Self::process_image(screenshot_data)?;
-
-        Ok(processed_data)
-    }
-
-    fn find_xochitl_pid() -> Result<String> {
-        let output = process::Command::new("pidof").arg("xochitl").output()?;
-        let pids = String::from_utf8(output.stdout)?;
-        for pid in pids.split_whitespace() {
-            let has_fb = process::Command::new("grep")
-                .args(&["-C1", "/dev/fb0", &format!("/proc/{}/maps", pid)])
-                .output()?;
-            if !has_fb.stdout.is_empty() {
-                return Ok(pid.to_string());
-            }
-        }
-        anyhow::bail!("No xochitl process with /dev/fb0 found")
-    }
-
-    fn find_framebuffer_address(pid: &str) -> Result<u64> {
-        let output = process::Command::new("sh")
-            .arg("-c")
-            .arg(format!(
-                "grep -C1 '/dev/fb0' /proc/{}/maps | tail -n1 | sed 's/-.*$//'",
-                pid
-            ))
-            .output()?;
-        let address_hex = String::from_utf8(output.stdout)?.trim().to_string();
-        let address = u64::from_str_radix(&address_hex, 16)?;
-        Ok(address + 7)
-    }
-
-    fn read_framebuffer(pid: &str, skip_bytes: u64) -> Result<Vec<u8>> {
-        let mut buffer = vec![0u8; WINDOW_BYTES];
-        let mut file = std::fs::File::open(format!("/proc/{}/mem", pid))?;
-        file.seek(std::io::SeekFrom::Start(skip_bytes))?;
-        file.read_exact(&mut buffer)?;
-        Ok(buffer)
-    }
-
-    fn process_image(data: Vec<u8>) -> Result<Vec<u8>> {
-        // Implement image processing here (transpose, color correction, etc.)
-        // For now, we'll just encode the raw data to PNG
-        Ok(Self::encode_png(&data)?)
-    }
-
-
-    fn encode_png(raw_data: &[u8]) -> Result<Vec<u8>> {
-        let raw_u8: Vec<u8> = raw_data
-            .chunks_exact(2)
-            .map(|chunk| u8::from_le_bytes([chunk[1]]))
-            .collect();
-
-        let mut processed = vec![0u8; (REMARKABLE_WIDTH * REMARKABLE_HEIGHT) as usize];
-
-        for y in 0..REMARKABLE_HEIGHT {
-            for x in 0..REMARKABLE_WIDTH {
-                let src_idx =
-                    (REMARKABLE_HEIGHT - 1 - y) + (REMARKABLE_WIDTH - 1 - x) * REMARKABLE_HEIGHT;
-                let dst_idx = y * REMARKABLE_WIDTH + x;
-                processed[dst_idx as usize] = Self::apply_curves(raw_u8[src_idx as usize]);
-            }
-        }
-
-        let img = GrayImage::from_raw(REMARKABLE_WIDTH as u32, REMARKABLE_HEIGHT as u32, processed)
-            .ok_or_else(|| anyhow::anyhow!("Failed to create image from raw data"))?;
-
-        let mut png_data = Vec::new();
-        let encoder = image::codecs::png::PngEncoder::new(&mut png_data);
-        encoder.encode(
-            img.as_raw(),
-            REMARKABLE_WIDTH as u32,
-            REMARKABLE_HEIGHT as u32,
-            image::ColorType::L8,
-        )?;
-
-        Ok(png_data)
-    }
-
-    fn apply_curves(value: u8) -> u8 {
-        let normalized = value as f32 / 255.0;
-        let adjusted = if normalized < 0.045 {
-            0.0
-        } else if normalized < 0.06 {
-            (normalized - 0.045) / (0.06 - 0.045)
-        } else {
-            1.0
-        };
-        (adjusted * 255.0) as u8
-    }
-
-    fn save_image(&self, filename: &str) -> Result<()> {
-        let mut png_file = File::create(filename)?;
-        png_file.write_all(&self.data)?;
-        println!("PNG image saved to {}", filename);
-        Ok(())
-    }
-
-    fn base64(&self) -> Result<String> {
-        let base64_image = general_purpose::STANDARD.encode(&self.data);
-
-        // Save the base64 encoded image to a file
-        let base64_filename = "tmp/screenshot_base64.txt";
-        let mut base64_file = File::create(base64_filename)?;
-        base64_file.write_all(base64_image.as_bytes())?;
-        println!("Base64 encoded image saved to {}", base64_filename);
-
-        Ok(base64_image)
-    }
-}
-
 fn draw_line(device: &mut Device, (x1, y1): (i32, i32), (x2, y2): (i32, i32)) -> Result<()> {
     // println!("Drawing from ({}, {}) to ({}, {})", x1, y1, x2, y2);
 
@@ -479,23 +344,23 @@ fn draw_line(device: &mut Device, (x1, y1): (i32, i32), (x2, y2): (i32, i32)) ->
     Ok(())
 }
 
-fn draw_dot(device: &mut Device, (x, y): (i32, i32)) -> Result<()> {
-    // println!("Drawing at ({}, {})", x, y);
-    draw_goto_xy(device, (x, y))?;
-    draw_pen_down(device)?;
-
-    // Wiggle a little bit
-    for n in 0..2 {
-        draw_goto_xy(device, (x + n, y + n))?;
-    }
-
-    draw_pen_up(device)?;
-
-    // sleep for 5ms
-    thread::sleep(time::Duration::from_millis(1));
-
-    Ok(())
-}
+// fn draw_dot(device: &mut Device, (x, y): (i32, i32)) -> Result<()> {
+//     // println!("Drawing at ({}, {})", x, y);
+//     draw_goto_xy(device, (x, y))?;
+//     draw_pen_down(device)?;
+//
+//     // Wiggle a little bit
+//     for n in 0..2 {
+//         draw_goto_xy(device, (x + n, y + n))?;
+//     }
+//
+//     draw_pen_up(device)?;
+//
+//     // sleep for 5ms
+//     thread::sleep(time::Duration::from_millis(1));
+//
+//     Ok(())
+// }
 
 fn draw_pen_down(device: &mut Device) -> Result<()> {
     device.send_events(&[
@@ -611,296 +476,8 @@ fn wait_for_trigger() -> Result<()> {
     }
 }
 
-use evdev::{uinput::VirtualDevice, uinput::VirtualDeviceBuilder, AttributeSet, Key};
-use std::thread::sleep;
-use std::time::Duration;
+// use evdev::{uinput::VirtualDevice, uinput::VirtualDeviceBuilder, AttributeSet, Key};
 
-use std::collections::HashMap;
+// use std::collections::HashMap;
 
-
-pub struct Keyboard {
-    device: VirtualDevice,
-    key_map: HashMap<char, (Key, bool)>,
-}
-
-impl Keyboard {
-    pub fn new() -> Self {
-        Self {
-            device: Self::create_virtual_device(),
-            key_map: Self::create_key_map(),
-        }
-    }
-
-    fn create_virtual_device() -> VirtualDevice {
-        let mut keys = AttributeSet::new();
-
-        keys.insert(Key::KEY_A);
-        keys.insert(Key::KEY_B);
-        keys.insert(Key::KEY_C);
-        keys.insert(Key::KEY_D);
-        keys.insert(Key::KEY_E);
-        keys.insert(Key::KEY_F);
-        keys.insert(Key::KEY_G);
-        keys.insert(Key::KEY_H);
-        keys.insert(Key::KEY_I);
-        keys.insert(Key::KEY_J);
-        keys.insert(Key::KEY_K);
-        keys.insert(Key::KEY_L);
-        keys.insert(Key::KEY_M);
-        keys.insert(Key::KEY_N);
-        keys.insert(Key::KEY_O);
-        keys.insert(Key::KEY_P);
-        keys.insert(Key::KEY_Q);
-        keys.insert(Key::KEY_R);
-        keys.insert(Key::KEY_S);
-        keys.insert(Key::KEY_T);
-        keys.insert(Key::KEY_U);
-        keys.insert(Key::KEY_V);
-        keys.insert(Key::KEY_W);
-        keys.insert(Key::KEY_X);
-        keys.insert(Key::KEY_Y);
-        keys.insert(Key::KEY_Z);
-
-        keys.insert(Key::KEY_1);
-        keys.insert(Key::KEY_2);
-        keys.insert(Key::KEY_3);
-        keys.insert(Key::KEY_4);
-        keys.insert(Key::KEY_5);
-        keys.insert(Key::KEY_6);
-        keys.insert(Key::KEY_7);
-        keys.insert(Key::KEY_8);
-        keys.insert(Key::KEY_9);
-        keys.insert(Key::KEY_0);
-
-        // Add punctuation and special keys
-        keys.insert(Key::KEY_SPACE);
-        keys.insert(Key::KEY_ENTER);
-        keys.insert(Key::KEY_TAB);
-        keys.insert(Key::KEY_LEFTSHIFT);
-        keys.insert(Key::KEY_MINUS);
-        keys.insert(Key::KEY_EQUAL);
-        keys.insert(Key::KEY_LEFTBRACE);
-        keys.insert(Key::KEY_RIGHTBRACE);
-        keys.insert(Key::KEY_BACKSLASH);
-        keys.insert(Key::KEY_SEMICOLON);
-        keys.insert(Key::KEY_APOSTROPHE);
-        keys.insert(Key::KEY_GRAVE);
-        keys.insert(Key::KEY_COMMA);
-        keys.insert(Key::KEY_DOT);
-        keys.insert(Key::KEY_SLASH);
-
-        keys.insert(Key::KEY_BACKSPACE);
-        keys.insert(Key::KEY_ESC);
-
-        keys.insert(Key::KEY_LEFTCTRL);
-        keys.insert(Key::KEY_LEFTALT);
-
-        VirtualDeviceBuilder::new()
-            .unwrap()
-            .name("Virtual Keyboard")
-            .with_keys(&keys)
-            .unwrap()
-            .build()
-            .unwrap()
-    }
-
-    fn create_key_map() -> HashMap<char, (Key, bool)> {
-        let mut key_map = HashMap::new();
-
-        // Lowercase letters
-        key_map.insert('a', (Key::KEY_A, false));
-        key_map.insert('b', (Key::KEY_B, false));
-        key_map.insert('c', (Key::KEY_C, false));
-        key_map.insert('d', (Key::KEY_D, false));
-        key_map.insert('e', (Key::KEY_E, false));
-        key_map.insert('f', (Key::KEY_F, false));
-        key_map.insert('g', (Key::KEY_G, false));
-        key_map.insert('h', (Key::KEY_H, false));
-        key_map.insert('i', (Key::KEY_I, false));
-        key_map.insert('j', (Key::KEY_J, false));
-        key_map.insert('k', (Key::KEY_K, false));
-        key_map.insert('l', (Key::KEY_L, false));
-        key_map.insert('m', (Key::KEY_M, false));
-        key_map.insert('n', (Key::KEY_N, false));
-        key_map.insert('o', (Key::KEY_O, false));
-        key_map.insert('p', (Key::KEY_P, false));
-        key_map.insert('q', (Key::KEY_Q, false));
-        key_map.insert('r', (Key::KEY_R, false));
-        key_map.insert('s', (Key::KEY_S, false));
-        key_map.insert('t', (Key::KEY_T, false));
-        key_map.insert('u', (Key::KEY_U, false));
-        key_map.insert('v', (Key::KEY_V, false));
-        key_map.insert('w', (Key::KEY_W, false));
-        key_map.insert('x', (Key::KEY_X, false));
-        key_map.insert('y', (Key::KEY_Y, false));
-        key_map.insert('z', (Key::KEY_Z, false));
-
-        // Uppercase letters
-        key_map.insert('A', (Key::KEY_A, true));
-        key_map.insert('B', (Key::KEY_B, true));
-        key_map.insert('C', (Key::KEY_C, true));
-        key_map.insert('D', (Key::KEY_D, true));
-        key_map.insert('E', (Key::KEY_E, true));
-        key_map.insert('F', (Key::KEY_F, true));
-        key_map.insert('G', (Key::KEY_G, true));
-        key_map.insert('H', (Key::KEY_H, true));
-        key_map.insert('I', (Key::KEY_I, true));
-        key_map.insert('J', (Key::KEY_J, true));
-        key_map.insert('K', (Key::KEY_K, true));
-        key_map.insert('L', (Key::KEY_L, true));
-        key_map.insert('M', (Key::KEY_M, true));
-        key_map.insert('N', (Key::KEY_N, true));
-        key_map.insert('O', (Key::KEY_O, true));
-        key_map.insert('P', (Key::KEY_P, true));
-        key_map.insert('Q', (Key::KEY_Q, true));
-        key_map.insert('R', (Key::KEY_R, true));
-        key_map.insert('S', (Key::KEY_S, true));
-        key_map.insert('T', (Key::KEY_T, true));
-        key_map.insert('U', (Key::KEY_U, true));
-        key_map.insert('V', (Key::KEY_V, true));
-        key_map.insert('W', (Key::KEY_W, true));
-        key_map.insert('X', (Key::KEY_X, true));
-        key_map.insert('Y', (Key::KEY_Y, true));
-        key_map.insert('Z', (Key::KEY_Z, true));
-
-        // Numbers
-        key_map.insert('0', (Key::KEY_0, false));
-        key_map.insert('1', (Key::KEY_1, false));
-        key_map.insert('2', (Key::KEY_2, false));
-        key_map.insert('3', (Key::KEY_3, false));
-        key_map.insert('4', (Key::KEY_4, false));
-        key_map.insert('5', (Key::KEY_5, false));
-        key_map.insert('6', (Key::KEY_6, false));
-        key_map.insert('7', (Key::KEY_7, false));
-        key_map.insert('8', (Key::KEY_8, false));
-        key_map.insert('9', (Key::KEY_9, false));
-
-        // Special characters
-        key_map.insert('!', (Key::KEY_1, true));
-        key_map.insert('@', (Key::KEY_2, true));
-        key_map.insert('#', (Key::KEY_3, true));
-        key_map.insert('$', (Key::KEY_4, true));
-        key_map.insert('%', (Key::KEY_5, true));
-        key_map.insert('^', (Key::KEY_6, true));
-        key_map.insert('&', (Key::KEY_7, true));
-        key_map.insert('*', (Key::KEY_8, true));
-        key_map.insert('(', (Key::KEY_9, true));
-        key_map.insert(')', (Key::KEY_0, true));
-        key_map.insert('_', (Key::KEY_MINUS, true));
-        key_map.insert('+', (Key::KEY_EQUAL, true));
-        key_map.insert('{', (Key::KEY_LEFTBRACE, true));
-        key_map.insert('}', (Key::KEY_RIGHTBRACE, true));
-        key_map.insert('|', (Key::KEY_BACKSLASH, true));
-        key_map.insert(':', (Key::KEY_SEMICOLON, true));
-        key_map.insert('"', (Key::KEY_APOSTROPHE, true));
-        key_map.insert('<', (Key::KEY_COMMA, true));
-        key_map.insert('>', (Key::KEY_DOT, true));
-        key_map.insert('?', (Key::KEY_SLASH, true));
-        key_map.insert('~', (Key::KEY_GRAVE, true));
-
-        // Common punctuation
-        key_map.insert('-', (Key::KEY_MINUS, false));
-        key_map.insert('=', (Key::KEY_EQUAL, false));
-        key_map.insert('[', (Key::KEY_LEFTBRACE, false));
-        key_map.insert(']', (Key::KEY_RIGHTBRACE, false));
-        key_map.insert('\\', (Key::KEY_BACKSLASH, false));
-        key_map.insert(';', (Key::KEY_SEMICOLON, false));
-        key_map.insert('\'', (Key::KEY_APOSTROPHE, false));
-        key_map.insert(',', (Key::KEY_COMMA, false));
-        key_map.insert('.', (Key::KEY_DOT, false));
-        key_map.insert('/', (Key::KEY_SLASH, false));
-        key_map.insert('`', (Key::KEY_GRAVE, false));
-
-        // Whitespace
-        key_map.insert(' ', (Key::KEY_SPACE, false));
-        key_map.insert('\t', (Key::KEY_TAB, false));
-        key_map.insert('\n', (Key::KEY_ENTER, false));
-
-        // Action keys, such as backspace, escape, ctrl, alt
-        key_map.insert('\x08', (Key::KEY_BACKSPACE, false));
-        key_map.insert('\x1b', (Key::KEY_ESC, false));
-
-        key_map
-    }
-
-    fn key_down(&mut self, key: Key) -> Result<()> {
-        self.device.emit(&[(InputEvent::new(EventType::KEY, key.code(), 1))])?;
-        Ok(())
-    }
-
-    fn key_up(&mut self, key: Key) -> Result<()> {
-        self.device.emit(&[(InputEvent::new(EventType::KEY, key.code(), 0))])?;
-        Ok(())
-    }
-
-    fn string_to_keypresses(&mut self, input: &str) -> Result<(), evdev::Error> {
-        for c in input.chars() {
-            if let Some(&(key, shift)) = self.key_map.get(&c) {
-                if shift {
-                    // Press Shift
-                    self.device.emit(&[InputEvent::new(
-                            EventType::KEY,
-                            Key::KEY_LEFTSHIFT.code(),
-                            1,
-                    )])?;
-                }
-
-                // Press key
-                self.device.emit(&[InputEvent::new(EventType::KEY, key.code(), 1)])?;
-
-                // Release key
-                self.device.emit(&[InputEvent::new(EventType::KEY, key.code(), 0)])?;
-
-                if shift {
-                    // Release Shift
-                    self.device.emit(&[InputEvent::new(
-                            EventType::KEY,
-                            Key::KEY_LEFTSHIFT.code(),
-                            0,
-                    )])?;
-                }
-
-                // Sync event
-                self.device.emit(&[InputEvent::new(EventType::SYNCHRONIZATION, 0, 0)])?;
-                thread::sleep(time::Duration::from_millis(10));
-            }
-        }
-
-        Ok(())
-    }
-
-    fn key_cmd(&mut self, button: &str, shift: bool) -> Result<()> {
-        self.key_down(Key::KEY_LEFTCTRL)?;
-        if shift {
-            self.key_down(Key::KEY_LEFTSHIFT)?;
-        }
-        self.string_to_keypresses(button)?;
-        if shift {
-            self.key_up(Key::KEY_LEFTSHIFT)?;
-        }
-        self.key_up(Key::KEY_LEFTCTRL)?;
-        Ok(())
-    }
-
-    fn key_cmd_title(&mut self) -> Result<()> {
-        self.key_cmd("1", false)?;
-        Ok(())
-    }
-
-    fn key_cmd_subheading(&mut self) -> Result<()> {
-        self.key_cmd("2", false)?;
-        Ok(())
-    }
-
-    fn key_cmd_body(&mut self) -> Result<()> {
-        self.key_cmd("3", false)?;
-        Ok(())
-    }
-
-    fn key_cmd_bullet(&mut self) -> Result<()> {
-        self.key_cmd("4", false)?;
-        Ok(())
-    }
-}
-
-
+// use crate::keyboard::Keyboard;

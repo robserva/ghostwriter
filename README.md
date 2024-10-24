@@ -57,6 +57,7 @@ Draw some stuff on your screen, and then trigger the assistant by *touching/tapp
 * **2024-10-23** - Code shuffle
   * Doing a bit of refactoring, grouping utilities into separate files
   * Yesterday a new Anthropic model came out (3.5-sonnet-new) which might be better at spacial awareness on the screen, so next up is to try that out in drawing-mode
+  * In any case, next I want to set it up with `tools` so that it can contextually give back an SVG or text or start to trigger external scripts, like for TODO list management
 
 ## Ideas
 * [DONE] Matt showed me his iOS super calc that just came out, take inspiration from that!

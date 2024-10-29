@@ -1,7 +1,7 @@
 use anyhow::Result;
+
 use image::GrayImage;
 use serde_json::json;
-use std::{thread, time};
 
 use clap::{Parser, Subcommand};
 
@@ -14,16 +14,17 @@ use std::sync::Arc;
 use std::thread::sleep;
 use std::time::Duration;
 
-use evdev::{Device, EventType, InputEvent};
-
 mod keyboard;
 use crate::keyboard::Keyboard;
 
 mod screenshot;
 use crate::screenshot::Screenshot;
 
-const INPUT_WIDTH: usize = 15725;
-const INPUT_HEIGHT: usize = 20966;
+mod pen;
+use crate::pen::Pen;
+
+mod touch;
+use crate::touch::Touch;
 
 const REMARKABLE_WIDTH: u32 = 1404;
 const REMARKABLE_HEIGHT: u32 = 1872;
@@ -83,10 +84,11 @@ fn keyboard_test() -> Result<()> {
 
 fn text_assistant(args: &Args) -> Result<()> {
     let mut keyboard = Keyboard::new();
+    let mut touch = Touch::new();
 
     loop {
         println!("Waiting for trigger (hand-touch in the upper-right corner)...");
-        wait_for_trigger()?;
+        touch.wait_for_trigger()?;
 
         keyboard.key_cmd_body()?;
         keyboard.string_to_keypresses(".")?;
@@ -176,19 +178,16 @@ fn text_assistant(args: &Args) -> Result<()> {
 
 fn ghostwriter(args: &Args) -> Result<()> {
     // Open the device for drawing
-    let mut device = Device::open("/dev/input/event1")?;
+    let mut pen = Pen::new();
+    let mut touch = Touch::new();
 
     loop {
         println!("Waiting for trigger (hand-touch in the upper-right corner)...");
-        wait_for_trigger()?;
+        touch.wait_for_trigger()?;
 
         let screenshot = Screenshot::new()?;
 
-        draw_line(
-            &mut device,
-            screen_to_input((1340, 5)),
-            screen_to_input((1390, 75)),
-        )?;
+        pen.draw_line_screen((1340, 5), (1390, 75))?;
 
         // Save the PNG image to a file
         screenshot.save_image("tmp/screenshot.png")?;
@@ -220,11 +219,7 @@ fn ghostwriter(args: &Args) -> Result<()> {
             }));
 
         println!("Sending request to OpenAI API...");
-        draw_line(
-            &mut device,
-            screen_to_input((1340, 75)),
-            screen_to_input((1390, 5)),
-        )?;
+        pen.draw_line_screen((1340, 75), (1390, 5))?;
 
         let response = ureq::post("https://api.openai.com/v1/chat/completions")
             .set("Authorization", &format!("Bearer {}", api_key))
@@ -235,11 +230,7 @@ fn ghostwriter(args: &Args) -> Result<()> {
             Ok(response) => {
                 let json: serde_json::Value = response.into_json()?;
                 println!("API Response: {}", json);
-                draw_line(
-                    &mut device,
-                    screen_to_input((1365, 5)),
-                    screen_to_input((1365, 75)),
-                )?;
+                pen.draw_line_screen( (1365, 5), (1365, 75))?;
 
                 let raw_output = json["choices"][0]["message"]["content"].as_str().unwrap();
                 let json_output = serde_json::from_str::<serde_json::Value>(raw_output)?;
@@ -262,34 +253,29 @@ fn ghostwriter(args: &Args) -> Result<()> {
                     for (x, &pixel) in row.iter().enumerate() {
                         if pixel {
                             if !is_pen_down {
-                                draw_goto_xy(&mut device, screen_to_input((x as i32, y as i32)))?;
-                                draw_pen_down(&mut device)?;
+                                pen.goto_xy_screen((x as i32, y as i32))?;
+                                pen.pen_down()?;
                                 is_pen_down = true;
-                                thread::sleep(time::Duration::from_millis(1));
+                                sleep(Duration::from_millis(1));
                             }
-                            draw_goto_xy(&mut device, screen_to_input((x as i32, y as i32)))?;
-                            draw_goto_xy(&mut device, screen_to_input((x as i32 + 1, y as i32)))?;
-                            // draw_goto_xy(&mut device, screen_to_input((x as i32 + 2, y as i32)))?;
+                            pen.goto_xy_screen((x as i32, y as i32))?;
+                            pen.goto_xy_screen((x as i32 + 1, y as i32))?;
                         } else {
                             if is_pen_down {
-                                draw_pen_up(&mut device)?;
+                                pen.pen_up()?;
                                 is_pen_down = false;
-                                thread::sleep(time::Duration::from_millis(1));
+                                sleep(Duration::from_millis(1));
                             }
                         }
                     }
 
                     // At the end of the row, pick up the pen no matter what
-                    draw_pen_up(&mut device)?;
+                    pen.pen_up()?;
                     is_pen_down = false;
-                    thread::sleep(time::Duration::from_millis(5));
+                    sleep(Duration::from_millis(5));
                 }
 
-                draw_line(
-                    &mut device,
-                    screen_to_input((1330, 40)),
-                    screen_to_input((1390, 40)),
-                )?;
+                pen.draw_line_screen( (1330, 40), (1390, 40))?;
             }
             Err(ureq::Error::Status(code, response)) => {
                 println!("HTTP Error: {} {}", code, response.status_text());
@@ -304,104 +290,6 @@ fn ghostwriter(args: &Args) -> Result<()> {
         }
     }
     Ok(())
-}
-
-use image;
-
-fn draw_line(device: &mut Device, (x1, y1): (i32, i32), (x2, y2): (i32, i32)) -> Result<()> {
-    // println!("Drawing from ({}, {}) to ({}, {})", x1, y1, x2, y2);
-
-    // We know this is a straight line
-    // So figure out the length
-    // Then divide it into enough steps to only go 10 units or so
-    // Start at x1, y1
-    // And then for each step add the right amount to x and y
-
-    let length = ((x2 as f32 - x1 as f32).powf(2.0) + (y2 as f32 - y1 as f32).powf(2.0)).sqrt();
-    // 5.0 is the maximum distance between points
-    // If this is too small
-    let steps = (length / 5.0).ceil() as i32;
-    let dx = (x2 - x1) / steps;
-    let dy = (y2 - y1) / steps;
-    // println!(
-    //     "Drawing from ({}, {}) to ({}, {}) in {} steps",
-    //     x1, y1, x2, y2, steps
-    // );
-
-    draw_pen_up(device)?;
-    draw_goto_xy(device, (x1, y1))?;
-    draw_pen_down(device)?;
-
-    for i in 0..steps {
-        let x = x1 + dx * i;
-        let y = y1 + dy * i;
-        draw_goto_xy(device, (x, y))?;
-        // println!("Drawing to point at ({}, {})", x, y);
-    }
-
-    draw_pen_up(device)?;
-
-    Ok(())
-}
-
-// fn draw_dot(device: &mut Device, (x, y): (i32, i32)) -> Result<()> {
-//     // println!("Drawing at ({}, {})", x, y);
-//     draw_goto_xy(device, (x, y))?;
-//     draw_pen_down(device)?;
-//
-//     // Wiggle a little bit
-//     for n in 0..2 {
-//         draw_goto_xy(device, (x + n, y + n))?;
-//     }
-//
-//     draw_pen_up(device)?;
-//
-//     // sleep for 5ms
-//     thread::sleep(time::Duration::from_millis(1));
-//
-//     Ok(())
-// }
-
-fn draw_pen_down(device: &mut Device) -> Result<()> {
-    device.send_events(&[
-        InputEvent::new(EventType::KEY, 320, 1), // BTN_TOOL_PEN
-        InputEvent::new(EventType::KEY, 330, 1), // BTN_TOUCH
-        InputEvent::new(EventType::ABSOLUTE, 24, 2630), // ABS_PRESSURE (max pressure)
-        InputEvent::new(EventType::ABSOLUTE, 25, 0), // ABS_DISTANCE
-        InputEvent::new(EventType::SYNCHRONIZATION, 0, 0), // SYN_REPORT
-    ])?;
-    Ok(())
-}
-
-fn draw_pen_up(device: &mut Device) -> Result<()> {
-    device.send_events(&[
-        InputEvent::new(EventType::ABSOLUTE, 24, 0), // ABS_PRESSURE
-        InputEvent::new(EventType::ABSOLUTE, 25, 100), // ABS_DISTANCE
-        InputEvent::new(EventType::KEY, 330, 0),     // BTN_TOUCH
-        InputEvent::new(EventType::KEY, 320, 0),     // BTN_TOOL_PEN
-        InputEvent::new(EventType::SYNCHRONIZATION, 0, 0), // SYN_REPORT
-    ])?;
-    Ok(())
-}
-
-fn draw_goto_xy(device: &mut Device, (x, y): (i32, i32)) -> Result<()> {
-    // println!("Drawing to point at ({}, {})", x, y);
-    device.send_events(&[
-        InputEvent::new(EventType::ABSOLUTE, 0, x),        // ABS_X
-        InputEvent::new(EventType::ABSOLUTE, 1, y),        // ABS_Y
-        InputEvent::new(EventType::SYNCHRONIZATION, 0, 0), // SYN_REPORT
-    ])?;
-    Ok(())
-}
-
-fn screen_to_input((x, y): (i32, i32)) -> (i32, i32) {
-    // Swap and normalize the coordinates
-    let x_normalized = x as f32 / REMARKABLE_WIDTH as f32;
-    let y_normalized = y as f32 / REMARKABLE_HEIGHT as f32;
-
-    let x_input = ((1.0 - y_normalized) * INPUT_HEIGHT as f32) as i32;
-    let y_input = (x_normalized * INPUT_WIDTH as f32) as i32;
-    (x_input, y_input)
 }
 
 fn svg_to_bitmap(svg_data: &str, width: u32, height: u32) -> Result<Vec<Vec<bool>>> {
@@ -451,33 +339,5 @@ fn write_bitmap_to_file(bitmap: &Vec<Vec<bool>>, filename: &str) -> Result<()> {
     Ok(())
 }
 
-fn wait_for_trigger() -> Result<()> {
-    let mut device = Device::open("/dev/input/event2")?; // Touch input device
-    let mut position_x = 0;
-    let mut position_y = 0;
-    loop {
-        for event in device.fetch_events().unwrap() {
-            if event.code() == 53 {
-                position_x = event.value();
-            }
-            if event.code() == 54 {
-                position_y = event.value();
-            }
-            if event.code() == 57 {
-                if event.value() == -1 {
-                    println!("Touch release detected at ({}, {})", position_x, position_y);
-                    if position_x > 1360 && position_y > 1810 {
-                        println!("Touch release in target zone!");
-                        return Ok(());
-                    }
-                }
-            }
-        }
-    }
-}
 
-// use evdev::{uinput::VirtualDevice, uinput::VirtualDeviceBuilder, AttributeSet, Key};
 
-// use std::collections::HashMap;
-
-// use crate::keyboard::Keyboard;

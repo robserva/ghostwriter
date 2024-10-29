@@ -85,12 +85,19 @@ Draw some stuff on your screen, and then trigger the assistant by *touching/tapp
 * External stuff
   * Let it look things up
   * Let it send me stuff ... emails, slacks
+* Evaluation
+  * Create a set of screenshots for inputs
+  * Represent different use-cases
+  * Some of these, such as TODO-extraction, might have specific expectations for output or execution, but most of them won't
+  * Run through the system to get example output -- text, svg, actions
+  * Write a test suite to judge the results .... somewhat human powered? Separate VLM judge?
 
 ## References
 * Adapted screen capture from [reSnap](https://github.com/cloudsftp/reSnap)
-* Techniques for screen-drawing inspired from [lamp](https://github.com/rmkit-dev/rmkit/blob/master/src/lamp/main.cpy)
+* Techniques for screen-drawing inspired from [rmkit lamp](https://github.com/rmkit-dev/rmkit/blob/master/src/lamp/main.cpy)
 * Super cool SVG-to-png done with [resvg](https://github.com/RazrFalcon/resvg)
 * Make the keyboard input device even without a keyboard via [rM-input-devices](https://github.com/pl-semiotics/rM-input-devices)
+* Not quite the same, but I recently found [reMarkableAI](https://github.com/nickian/reMarkableAI) that does OCR→OpenAI→PDF→Device
 
 ## Development
 

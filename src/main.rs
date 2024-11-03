@@ -59,8 +59,7 @@ fn main() -> Result<()> {
 
     match &args.command {
         Some(Command::KeyboardTest) => keyboard_test(),
-        Some(Command::TextAssist) => text_assistant(&args),
-        None => ghostwriter(&args),
+        Some(Command::TextAssist) | None => ghostwriter(&args),
     }
 }
 
@@ -82,102 +81,8 @@ fn keyboard_test() -> Result<()> {
     Ok(())
 }
 
-fn text_assistant(args: &Args) -> Result<()> {
-    let mut keyboard = Keyboard::new();
-    let mut touch = Touch::new();
-
-    loop {
-        println!("Waiting for trigger (hand-touch in the upper-right corner)...");
-        touch.wait_for_trigger()?;
-
-        keyboard.key_cmd_body()?;
-        keyboard.string_to_keypresses(".")?;
-
-        let screenshot = Screenshot::new()?;
-
-        keyboard.string_to_keypresses(".")?;
-
-        // Save the PNG image to a file
-        screenshot.save_image("tmp/screenshot.png")?;
-
-        keyboard.string_to_keypresses(".")?;
-
-        let base64_image = screenshot.base64()?;
-
-        keyboard.string_to_keypresses(".")?;
-
-        if args.no_submit {
-            println!("Image not submitted to OpenAI due to --no-submit flag");
-            return Ok(());
-        }
-
-        let api_key = std::env::var("OPENAI_API_KEY")?;
-
-        let mut body =
-            serde_json::from_str::<serde_json::Value>(include_str!("../prompts/text.json"))?;
-        body["model"] = json!(args.model);
-        body["messages"][0]["content"]
-            .as_array_mut()
-            .unwrap()
-            .push(json!({
-                "type": "image_url",
-                "image_url": {
-                    "url": format!("data:image/png;base64,{}", base64_image)
-                }
-            }));
-
-        println!("Sending request to OpenAI API...");
-        keyboard.string_to_keypresses(".")?;
-
-        let response = ureq::post("https://api.openai.com/v1/chat/completions")
-            .set("Authorization", &format!("Bearer {}", api_key))
-            .set("Content-Type", "application/json")
-            .send_json(&body);
-
-        match response {
-            Ok(response) => {
-                keyboard.string_to_keypresses(".")?;
-                let json: serde_json::Value = response.into_json()?;
-                println!("API Response: {}", json);
-                keyboard.string_to_keypresses(".")?;
-
-                let raw_output = json["choices"][0]["message"]["content"].as_str().unwrap();
-                let json_output = serde_json::from_str::<serde_json::Value>(raw_output)?;
-                let input_description = json_output["input_description"].as_str().unwrap();
-                let output_description = json_output["output_description"].as_str().unwrap();
-                let text_data = json_output["text"].as_str().unwrap();
-
-                println!("Input Description: {}", input_description);
-                println!("Output Description: {}", output_description);
-                println!("Text Data: {}", text_data);
-
-                println!("Writing output back onto the screen");
-                keyboard.key_cmd_body()?;
-
-                // Erase the progress dots
-                keyboard.string_to_keypresses("\x08\x08\x08\x08\x08\x08\x08")?;
-
-                keyboard.string_to_keypresses(text_data)?;
-                keyboard.string_to_keypresses("\n\n")?;
-            }
-            Err(ureq::Error::Status(code, response)) => {
-                println!("HTTP Error: {} {}", code, response.status_text());
-                if let Ok(json) = response.into_json::<serde_json::Value>() {
-                    println!("Error details: {}", json);
-                } else {
-                    println!("Failed to parse error response as JSON");
-                }
-                return Err(anyhow::anyhow!("API request failed"));
-            }
-            Err(e) => return Err(anyhow::anyhow!("Request failed: {}", e)),
-        }
-    }
-
-    Ok(())
-}
-
 fn ghostwriter(args: &Args) -> Result<()> {
-    // Open the device for drawing
+    let mut keyboard = Keyboard::new();
     let mut pen = Pen::new();
     let mut touch = Touch::new();
 
@@ -185,13 +90,10 @@ fn ghostwriter(args: &Args) -> Result<()> {
         println!("Waiting for trigger (hand-touch in the upper-right corner)...");
         touch.wait_for_trigger()?;
 
+        // TODO: Show progress indicator using the keyboard in all cases? Some other cool doodle?
+
         let screenshot = Screenshot::new()?;
-
-        pen.draw_line_screen((1340, 5), (1390, 75))?;
-
-        // Save the PNG image to a file
         screenshot.save_image("tmp/screenshot.png")?;
-
         let base64_image = screenshot.base64()?;
 
         if args.no_submit {
@@ -200,94 +102,149 @@ fn ghostwriter(args: &Args) -> Result<()> {
         }
 
         let api_key = std::env::var("OPENAI_API_KEY")?;
-
-        // Get the base prompt from prompts/base.json as a serde json object
-        // Then modify it to set our current model and add the image
-        let mut body =
-            serde_json::from_str::<serde_json::Value>(include_str!("../prompts/base.json"))?;
-        body["model"] = json!(args.model);
-        // body["model"] = json!("gpt-4o");
-        // body["model"] = json!("o1-preview");
-        body["messages"][0]["content"]
-            .as_array_mut()
-            .unwrap()
-            .push(json!({
-                "type": "image_url",
-                "image_url": {
-                    "url": format!("data:image/png;base64,{}", base64_image)
-                }
-            }));
-
-        println!("Sending request to OpenAI API...");
-        pen.draw_line_screen((1340, 75), (1390, 5))?;
-
-        let response = ureq::post("https://api.openai.com/v1/chat/completions")
-            .set("Authorization", &format!("Bearer {}", api_key))
-            .set("Content-Type", "application/json")
-            .send_json(&body);
-
-        match response {
-            Ok(response) => {
-                let json: serde_json::Value = response.into_json()?;
-                println!("API Response: {}", json);
-                pen.draw_line_screen( (1365, 5), (1365, 75))?;
-
-                let raw_output = json["choices"][0]["message"]["content"].as_str().unwrap();
-                let json_output = serde_json::from_str::<serde_json::Value>(raw_output)?;
-                let input_description = json_output["input_description"].as_str().unwrap();
-                let output_description = json_output["output_description"].as_str().unwrap();
-                let svg_data = json_output["svg"].as_str().unwrap();
-
-                println!("Input Description: {}", input_description);
-                println!("Output Description: {}", output_description);
-                println!("SVG Data: {}", svg_data);
-
-                println!("Rendering SVG to bitmap");
-                let bitmap =
-                    svg_to_bitmap(svg_data, REMARKABLE_WIDTH as u32, REMARKABLE_HEIGHT as u32)?;
-                write_bitmap_to_file(&bitmap, "tmp/debug_bitmap.png")?;
-
-                println!("Drawing output back onto the screen");
-                let mut is_pen_down = false;
-                for (y, row) in bitmap.iter().enumerate() {
-                    for (x, &pixel) in row.iter().enumerate() {
-                        if pixel {
-                            if !is_pen_down {
-                                pen.goto_xy_screen((x as i32, y as i32))?;
-                                pen.pen_down()?;
-                                is_pen_down = true;
-                                sleep(Duration::from_millis(1));
+        let tools = json!([
+            {
+                "type": "function",
+                "function": {
+                    "name": "process_text",
+                    "description": "Process text from the image and return structured text output",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "input_description": {
+                                "type": "string",
+                                "description": "Description of what was detected in the input image"
+                            },
+                            "output_description": {
+                                "type": "string",
+                                "description": "Description of what will be output"
+                            },
+                            "text": {
+                                "type": "string",
+                                "description": "Text to be written"
                             }
-                            pen.goto_xy_screen((x as i32, y as i32))?;
-                            pen.goto_xy_screen((x as i32 + 1, y as i32))?;
-                        } else {
-                            if is_pen_down {
-                                pen.pen_up()?;
-                                is_pen_down = false;
-                                sleep(Duration::from_millis(1));
-                            }
-                        }
+                        },
+                        "required": ["input_description", "output_description", "text"]
                     }
-
-                    // At the end of the row, pick up the pen no matter what
-                    pen.pen_up()?;
-                    is_pen_down = false;
-                    sleep(Duration::from_millis(5));
                 }
-
-                pen.draw_line_screen( (1330, 40), (1390, 40))?;
-            }
-            Err(ureq::Error::Status(code, response)) => {
-                println!("HTTP Error: {} {}", code, response.status_text());
-                if let Ok(json) = response.into_json::<serde_json::Value>() {
-                    println!("Error details: {}", json);
-                } else {
-                    println!("Failed to parse error response as JSON");
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "process_drawing",
+                    "description": "Process the drawing and return structured SVG output",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "input_description": {
+                                "type": "string",
+                                "description": "Description of what was detected in the input image"
+                            },
+                            "output_description": {
+                                "type": "string",
+                                "description": "Description of what will be drawn"
+                            },
+                            "svg": {
+                                "type": "string",
+                                "description": "SVG data to be rendered"
+                            }
+                        },
+                        "required": ["input_description", "output_description", "svg"]
+                    }
                 }
-                return Err(anyhow::anyhow!("API request failed"));
             }
-            Err(e) => return Err(anyhow::anyhow!("Request failed: {}", e)),
+        ]);
+
+        let mut body = json!({
+            "model": args.model,
+            "messages": [{
+                "role": "user",
+                "content": [{
+                    "type": "image_url",
+                    "image_url": {
+                        "url": format!("data:image/png;base64,{}", base64_image)
+                    }
+                }]
+            }],
+            "tools": tools,
+            "tool_choice": "auto"
+        });
+
+        // Process response and handle either text or drawing output based on the tool called
+        match handle_api_response(&api_key, body, &mut keyboard, &mut pen)? {
+            OutputType::Text => println!("Processed text output"),
+            OutputType::Drawing => println!("Processed drawing output"),
         }
+    }
+}
+
+enum OutputType {
+    Text,
+    Drawing,
+}
+
+fn handle_api_response(
+    api_key: &str, 
+    body: serde_json::Value,
+    keyboard: &mut Keyboard,
+    pen: &mut Pen,
+) -> Result<OutputType> {
+    let response = ureq::post("https://api.openai.com/v1/chat/completions")
+        .set("Authorization", &format!("Bearer {}", api_key))
+        .set("Content-Type", "application/json")
+        .send_json(&body)?;
+
+    let json: serde_json::Value = response.into_json()?;
+    let tool_calls = &json["choices"][0]["message"]["tool_calls"];
+    
+    if let Some(tool_call) = tool_calls.get(0) {
+        let function_name = tool_call["function"]["name"].as_str().unwrap();
+        let arguments = tool_call["function"]["arguments"].as_str().unwrap();
+        let json_output = serde_json::from_str::<serde_json::Value>(arguments)?;
+
+        match function_name {
+            "process_text" => {
+                let text = json_output["text"].as_str().unwrap();
+                keyboard.key_cmd_body()?;
+                keyboard.string_to_keypresses(text)?;
+                keyboard.string_to_keypresses("\n\n")?;
+                Ok(OutputType::Text)
+            },
+            "process_drawing" => {
+                let svg_data = json_output["svg"].as_str().unwrap();
+                let bitmap = svg_to_bitmap(svg_data, REMARKABLE_WIDTH, REMARKABLE_HEIGHT)?;
+                draw_bitmap(pen, &bitmap)?;
+                Ok(OutputType::Drawing)
+            },
+            _ => Err(anyhow::anyhow!("Unknown function called"))
+        }
+    } else {
+        Err(anyhow::anyhow!("No tool call found in response"))
+    }
+}
+
+fn draw_bitmap(pen: &mut Pen, bitmap: &Vec<Vec<bool>>) -> Result<()> {
+    let mut is_pen_down = false;
+    for (y, row) in bitmap.iter().enumerate() {
+        for (x, &pixel) in row.iter().enumerate() {
+            if pixel {
+                if !is_pen_down {
+                    pen.goto_xy_screen((x as i32, y as i32))?;
+                    pen.pen_down()?;
+                    is_pen_down = true;
+                    sleep(Duration::from_millis(1));
+                }
+                pen.goto_xy_screen((x as i32, y as i32))?;
+                pen.goto_xy_screen((x as i32 + 1, y as i32))?;
+            } else if is_pen_down {
+                pen.pen_up()?;
+                is_pen_down = false;
+                sleep(Duration::from_millis(1));
+            }
+        }
+        pen.pen_up()?;
+        is_pen_down = false;
+        sleep(Duration::from_millis(5));
     }
     Ok(())
 }

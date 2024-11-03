@@ -33,7 +33,7 @@ chmod +x ./ghostwriter
 ./ghostwriter text-assist  # Start a text/keyboard-replying session
 ```
 
-Draw some stuff on your screen, and then trigger the assistant by *touching/tapping the upper-right corner with your finger*. In the ssh session you'll see other touch-detections and there is a log of what happens while it is processing. You should see some dots drawn during processing and then a typewritten response!
+Draw some stuff on your screen, and then trigger the assistant by *touching/tapping the upper-right corner with your finger*. In the ssh session you'll see other touch-detections and there is a log of what happens while it is processing. You should see some dots drawn during processing and then a typewritten or drawn response!
 
 ## Status / Journal
 * **2024-10-06** - Bootstrapping
@@ -58,6 +58,10 @@ Draw some stuff on your screen, and then trigger the assistant by *touching/tapp
   * Doing a bit of refactoring, grouping utilities into separate files
   * Yesterday a new Anthropic model came out (3.5-sonnet-new) which might be better at spacial awareness on the screen, so next up is to try that out in drawing-mode
   * In any case, next I want to set it up with `tools` so that it can contextually give back an SVG or text or start to trigger external scripts, like for TODO list management
+* **2024-11-02** - Tool Time
+  * Switch to providing some tools -- draw_text and draw_svg
+  * This should make it more compatible with Anthropic?
+  * More immediately, this means now there is the one overall assistant and it decides to draw back keyboard text or SVG drawing
 
 ## Ideas
 * [DONE] Matt showed me his iOS super calc that just came out, take inspiration from that!
@@ -81,7 +85,7 @@ Draw some stuff on your screen, and then trigger the assistant by *touching/tapp
   * Could prompt for openai key and then write it into the file
   * Maybe an auto-start, auto-recovery?
 * Generate Diagrams
-  * Let one of the outputs be graphviz and/or mermaid, and then turn that into an SVG/png that it then outputs to the screen
+  * Let one of the outputs be plantuml and/or mermaid, and then turn that into an SVG/png that it then outputs to the screen
 * External stuff
   * Let it look things up
   * Let it send me stuff ... emails, slacks

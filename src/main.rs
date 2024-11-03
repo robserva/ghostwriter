@@ -86,18 +86,25 @@ fn ghostwriter(args: &Args) -> Result<()> {
     let mut pen = Pen::new();
     let mut touch = Touch::new();
 
+    // Default to regular text size
+    keyboard.key_cmd_body()?;
+
     loop {
         println!("Waiting for trigger (hand-touch in the upper-right corner)...");
         touch.wait_for_trigger()?;
+
+        keyboard.progress()?;
 
         // TODO: Show progress indicator using the keyboard in all cases? Some other cool doodle?
 
         let screenshot = Screenshot::new()?;
         screenshot.save_image("tmp/screenshot.png")?;
         let base64_image = screenshot.base64()?;
+        keyboard.progress()?;
 
         if args.no_submit {
             println!("Image not submitted to OpenAI due to --no-submit flag");
+            keyboard.progress_end()?;
             return Ok(());
         }
 
@@ -106,8 +113,8 @@ fn ghostwriter(args: &Args) -> Result<()> {
             {
                 "type": "function",
                 "function": {
-                    "name": "process_text",
-                    "description": "Process text from the image and return structured text output",
+                    "name": "draw_text",
+                    "description": "Draw text to the screen using simulated keyboard input. The input_description and output_description are used to build a plan for the actual output.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -131,8 +138,8 @@ fn ghostwriter(args: &Args) -> Result<()> {
             {
                 "type": "function",
                 "function": {
-                    "name": "process_drawing",
-                    "description": "Process the drawing and return structured SVG output",
+                    "name": "draw_svg",
+                    "description": "Draw an SVG to the screen using simulated pen input. The input_description and output_description are used to build a plan for the actual output.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -146,7 +153,7 @@ fn ghostwriter(args: &Args) -> Result<()> {
                             },
                             "svg": {
                                 "type": "string",
-                                "description": "SVG data to be rendered"
+                                "description": "SVG data to be rendered. This is drawn on top of the input image, and should be the same size as the input image (1404x1872 px). The display can only show black and white. Try to place the output in an integrated position. Use the `Noto Sans` font-family when you are showing text. Do not use a style tag tag. Do not use any fill colors or gradients or transparency or shadows. Do include the xmlns in the main svg tag."
                             }
                         },
                         "required": ["input_description", "output_description", "svg"]
@@ -159,12 +166,19 @@ fn ghostwriter(args: &Args) -> Result<()> {
             "model": args.model,
             "messages": [{
                 "role": "user",
-                "content": [{
-                    "type": "image_url",
-                    "image_url": {
-                        "url": format!("data:image/png;base64,{}", base64_image)
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "You are a helpful assistant. You live inside of a remarkable2 notepad, which has a 1404x1872 sized screen which can only display grayscale. Your input is the current content of the screen, which may contain content written by the user or previously written by you (the assistant). Look at this content, interpret it, and respond to the content. The content will contain handwritten notes, diagrams, and maybe typewritten text. Respond by calling a tool. Call draw_text to output text which will be sent using simulated keyboard input. Call draw_svg to respond with an SVG drawing which will be drawn on top of the existing content. Try to place the output on the screen at coordinates that make sense. If you need to place text at a very specific location, you should output an SVG instead of keyboard text."
+                    },
+
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": format!("data:image/png;base64,{}", base64_image)
+                        }
                     }
-                }]
+                ]
             }],
             "tools": tools,
             "tool_choice": "auto"
@@ -184,41 +198,55 @@ enum OutputType {
 }
 
 fn handle_api_response(
-    api_key: &str, 
+    api_key: &str,
     body: serde_json::Value,
     keyboard: &mut Keyboard,
     pen: &mut Pen,
 ) -> Result<OutputType> {
+        keyboard.progress()?;
     let response = ureq::post("https://api.openai.com/v1/chat/completions")
         .set("Authorization", &format!("Bearer {}", api_key))
         .set("Content-Type", "application/json")
         .send_json(&body)?;
+        keyboard.progress()?;
 
     let json: serde_json::Value = response.into_json()?;
+    println!("Response: {}", json);
     let tool_calls = &json["choices"][0]["message"]["tool_calls"];
-    
+
     if let Some(tool_call) = tool_calls.get(0) {
+        keyboard.progress()?;
         let function_name = tool_call["function"]["name"].as_str().unwrap();
         let arguments = tool_call["function"]["arguments"].as_str().unwrap();
         let json_output = serde_json::from_str::<serde_json::Value>(arguments)?;
+        keyboard.progress()?;
 
         match function_name {
-            "process_text" => {
+            "draw_text" => {
+        keyboard.progress()?;
                 let text = json_output["text"].as_str().unwrap();
+        keyboard.progress_end()?;
                 keyboard.key_cmd_body()?;
                 keyboard.string_to_keypresses(text)?;
                 keyboard.string_to_keypresses("\n\n")?;
                 Ok(OutputType::Text)
             },
-            "process_drawing" => {
+            "draw_svg" => {
                 let svg_data = json_output["svg"].as_str().unwrap();
+        keyboard.progress()?;
                 let bitmap = svg_to_bitmap(svg_data, REMARKABLE_WIDTH, REMARKABLE_HEIGHT)?;
+        keyboard.progress()?;
                 draw_bitmap(pen, &bitmap)?;
+        keyboard.progress_end()?;
                 Ok(OutputType::Drawing)
             },
-            _ => Err(anyhow::anyhow!("Unknown function called"))
+            _ => {
+        keyboard.progress_end()?;
+                Err(anyhow::anyhow!("Unknown function called"))
+                }
         }
     } else {
+        keyboard.progress_end()?;
         Err(anyhow::anyhow!("No tool call found in response"))
     }
 }

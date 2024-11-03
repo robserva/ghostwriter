@@ -10,6 +10,7 @@ use evdev::{
 pub struct Keyboard {
     device: VirtualDevice,
     key_map: HashMap<char, (Key, bool)>,
+    progress_count: u32,
 }
 
 impl Keyboard {
@@ -17,6 +18,7 @@ impl Keyboard {
         Self {
             device: Self::create_virtual_device(),
             key_map: Self::create_key_map(),
+            progress_count: 0,
         }
     }
 
@@ -295,4 +297,20 @@ impl Keyboard {
         self.key_cmd("4", false)?;
         Ok(())
     }
+
+    pub fn progress(&mut self) -> Result<()> {
+        self.string_to_keypresses(".")?;
+        self.progress_count += 1;
+        Ok(())
+    }
+
+    pub fn progress_end(&mut self) -> Result<()> {
+        // Send a backspace for each progress
+        for _ in 0..self.progress_count {
+            self.string_to_keypresses("\x08")?;
+        }
+        self.progress_count = 0;
+        Ok(())
+    }
+
 }

@@ -203,12 +203,12 @@ fn handle_api_response(
     keyboard: &mut Keyboard,
     pen: &mut Pen,
 ) -> Result<OutputType> {
-        keyboard.progress()?;
+    keyboard.progress()?;
     let response = ureq::post("https://api.openai.com/v1/chat/completions")
         .set("Authorization", &format!("Bearer {}", api_key))
         .set("Content-Type", "application/json")
         .send_json(&body)?;
-        keyboard.progress()?;
+    keyboard.progress()?;
 
     let json: serde_json::Value = response.into_json()?;
     println!("Response: {}", json);
@@ -223,27 +223,27 @@ fn handle_api_response(
 
         match function_name {
             "draw_text" => {
-        keyboard.progress()?;
+                keyboard.progress()?;
                 let text = json_output["text"].as_str().unwrap();
-        keyboard.progress_end()?;
+                keyboard.progress_end()?;
                 keyboard.key_cmd_body()?;
                 keyboard.string_to_keypresses(text)?;
                 keyboard.string_to_keypresses("\n\n")?;
                 Ok(OutputType::Text)
-            },
+            }
             "draw_svg" => {
                 let svg_data = json_output["svg"].as_str().unwrap();
-        keyboard.progress()?;
+                keyboard.progress()?;
                 let bitmap = svg_to_bitmap(svg_data, REMARKABLE_WIDTH, REMARKABLE_HEIGHT)?;
-        keyboard.progress()?;
+                keyboard.progress()?;
                 draw_bitmap(pen, &bitmap)?;
-        keyboard.progress_end()?;
+                keyboard.progress_end()?;
                 Ok(OutputType::Drawing)
-            },
+            }
             _ => {
-        keyboard.progress_end()?;
+                keyboard.progress_end()?;
                 Err(anyhow::anyhow!("Unknown function called"))
-                }
+            }
         }
     } else {
         keyboard.progress_end()?;
@@ -323,6 +323,3 @@ fn write_bitmap_to_file(bitmap: &Vec<Vec<bool>>, filename: &str) -> Result<()> {
     println!("Bitmap saved to {}", filename);
     Ok(())
 }
-
-
-

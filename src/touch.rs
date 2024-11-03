@@ -1,17 +1,15 @@
 use anyhow::Result;
-use evdev::{Device};
+use evdev::Device;
 
 pub struct Touch {
-    device: Device
+    device: Device,
 }
 
 impl Touch {
     pub fn new() -> Self {
         let device = Device::open("/dev/input/event2").unwrap();
 
-        Self {
-            device: device
-        }
+        Self { device: device }
     }
 
     pub fn wait_for_trigger(&mut self) -> Result<()> {

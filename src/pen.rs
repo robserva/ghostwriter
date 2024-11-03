@@ -8,17 +8,14 @@ const REMARKABLE_WIDTH: u32 = 1404;
 const REMARKABLE_HEIGHT: u32 = 1872;
 
 pub struct Pen {
-    device: Device
+    device: Device,
 }
 
 impl Pen {
-
     pub fn new() -> Self {
         let device = Device::open("/dev/input/event1").unwrap();
 
-        Self {
-            device: device
-        }
+        Self { device: device }
     }
 
     pub fn draw_line_screen(&mut self, p1: (i32, i32), p2: (i32, i32)) -> Result<()> {
@@ -114,15 +111,13 @@ impl Pen {
         ])?;
         Ok(())
     }
-
-
 }
-    fn screen_to_input((x, y): (i32, i32)) -> (i32, i32) {
-        // Swap and normalize the coordinates
-        let x_normalized = x as f32 / REMARKABLE_WIDTH as f32;
-        let y_normalized = y as f32 / REMARKABLE_HEIGHT as f32;
+fn screen_to_input((x, y): (i32, i32)) -> (i32, i32) {
+    // Swap and normalize the coordinates
+    let x_normalized = x as f32 / REMARKABLE_WIDTH as f32;
+    let y_normalized = y as f32 / REMARKABLE_HEIGHT as f32;
 
-        let x_input = ((1.0 - y_normalized) * INPUT_HEIGHT as f32) as i32;
-        let y_input = (x_normalized * INPUT_WIDTH as f32) as i32;
-        (x_input, y_input)
-    }
+    let x_input = ((1.0 - y_normalized) * INPUT_HEIGHT as f32) as i32;
+    let y_input = (x_normalized * INPUT_WIDTH as f32) as i32;
+    (x_input, y_input)
+}

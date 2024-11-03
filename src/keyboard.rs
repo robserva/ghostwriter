@@ -312,5 +312,4 @@ impl Keyboard {
         self.progress_count = 0;
         Ok(())
     }
-
 }

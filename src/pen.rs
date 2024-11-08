@@ -1,5 +1,7 @@
 use anyhow::Result;
 use evdev::{Device, EventType, InputEvent};
+use std::thread::sleep;
+use std::time::Duration;
 
 const INPUT_WIDTH: usize = 15725;
 const INPUT_HEIGHT: usize = 20966;
@@ -57,6 +59,33 @@ impl Pen {
 
         Ok(())
     }
+
+    pub fn draw_bitmap(&mut self, bitmap: &Vec<Vec<bool>>) -> Result<()> {
+        let mut is_pen_down = false;
+        for (y, row) in bitmap.iter().enumerate() {
+            for (x, &pixel) in row.iter().enumerate() {
+                if pixel {
+                    if !is_pen_down {
+                        self.goto_xy_screen((x as i32, y as i32))?;
+                        self.pen_down()?;
+                        is_pen_down = true;
+                        sleep(Duration::from_millis(1));
+                    }
+                    self.goto_xy_screen((x as i32, y as i32))?;
+                    self.goto_xy_screen((x as i32 + 1, y as i32))?;
+                } else if is_pen_down {
+                    self.pen_up()?;
+                    is_pen_down = false;
+                    sleep(Duration::from_millis(1));
+                }
+            }
+            self.pen_up()?;
+            is_pen_down = false;
+            sleep(Duration::from_millis(5));
+        }
+        Ok(())
+    }
+
 
     // fn draw_dot(device: &mut Device, (x, y): (i32, i32)) -> Result<()> {
     //     // println!("Drawing at ({}, {})", x, y);

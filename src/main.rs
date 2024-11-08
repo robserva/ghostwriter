@@ -178,7 +178,8 @@ fn ghostwriter(args: &Args) -> Result<()> {
                 ]
             }],
             "tools": tools,
-            "tool_choice": "auto"
+            "tool_choice": "required",
+            "parallel_tool_calls": false
         });
 
         keyboard.progress()?;
@@ -201,20 +202,13 @@ fn ghostwriter(args: &Args) -> Result<()> {
 
             match function_name {
                 "draw_text" => {
-                    keyboard.progress()?;
                     let text = json_output["text"].as_str().unwrap();
-                    keyboard.progress_end()?;
-                    keyboard.key_cmd_body()?;
-                    keyboard.string_to_keypresses(text)?;
-                    keyboard.string_to_keypresses("\n\n")?;
+                    draw_text(text, &mut keyboard)?;
+
                 }
                 "draw_svg" => {
                     let svg_data = json_output["svg"].as_str().unwrap();
-                    keyboard.progress()?;
-                    let bitmap = svg_to_bitmap(svg_data, REMARKABLE_WIDTH, REMARKABLE_HEIGHT)?;
-                    keyboard.progress()?;
-                    pen.draw_bitmap(&bitmap)?;
-                    keyboard.progress_end()?;
+                    draw_svg(svg_data, &mut keyboard, &mut pen)?;
                 }
                 _ => {
                     keyboard.progress_end()?;
@@ -228,3 +222,20 @@ fn ghostwriter(args: &Args) -> Result<()> {
     }
 }
 
+fn draw_text(text: &str, keyboard: &mut Keyboard) -> Result<()> {
+    keyboard.progress()?;
+    keyboard.progress_end()?;
+    keyboard.key_cmd_body()?;
+    keyboard.string_to_keypresses(text)?;
+    keyboard.string_to_keypresses("\n\n")?;
+    Ok(())
+}
+
+fn draw_svg(svg_data: &str, keyboard: &mut Keyboard, pen: &mut Pen) -> Result<()> {
+    keyboard.progress()?;
+    let bitmap = svg_to_bitmap(svg_data, REMARKABLE_WIDTH, REMARKABLE_HEIGHT)?;
+    keyboard.progress()?;
+    pen.draw_bitmap(&bitmap)?;
+    keyboard.progress_end()?;
+    Ok(())
+}

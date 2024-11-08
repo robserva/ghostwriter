@@ -62,6 +62,12 @@ Draw some stuff on your screen, and then trigger the assistant by *touching/tapp
   * Switch to providing some tools -- draw_text and draw_svg
   * This should make it more compatible with Anthropic?
   * More immediately, this means now there is the one overall assistant and it decides to draw back keyboard text or SVG drawing
+* **2024-11-07** - Claude! (Anthropic)
+  * More shuffling to start to isolate the API
+  * ... and now I added Claude/Anthropic!
+  * It is able to use an almost identical tool-use setup, so I should be able to merge the two
+  * So far it seems to like drawing a bit more, but it is not great at drawing and not much better at spacial awareness
+  * Maybe next on the queue will be augmenting spacial awareness through some image pre-processing and result positioning. Like detect bounding boxes, segments, etc, feed that into the model, and have the model return an array of svgs and where they should be positioned. Maybe.
 
 ## Ideas
 * [DONE] Matt showed me his iOS super calc that just came out, take inspiration from that!

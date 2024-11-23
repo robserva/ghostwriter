@@ -137,13 +137,6 @@ impl Screenshot {
 
     pub fn base64(&self) -> Result<String> {
         let base64_image = general_purpose::STANDARD.encode(&self.data);
-
-        // Save the base64 encoded image to a file
-        let base64_filename = "tmp/screenshot_base64.txt";
-        let mut base64_file = File::create(base64_filename)?;
-        base64_file.write_all(base64_image.as_bytes())?;
-        println!("Base64 encoded image saved to {}", base64_filename);
-
         Ok(base64_image)
     }
 }

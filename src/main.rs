@@ -22,7 +22,7 @@ mod touch;
 use crate::touch::Touch;
 
 mod util;
-use crate::util::{svg_to_bitmap};
+use crate::util::{svg_to_bitmap, write_bitmap_to_file};
 
 const REMARKABLE_WIDTH: u32 = 1404;
 const REMARKABLE_HEIGHT: u32 = 1872;
@@ -65,6 +65,10 @@ struct Args {
     /// Save screenshot filename
     #[arg(long)]
     save_screenshot: Option<String>,
+
+    /// Save bitmap filename
+    #[arg(long)]
+    save_bitmap: Option<String>,
 
     #[command(subcommand)]
     command: Option<Command>,
@@ -263,9 +267,7 @@ fn ghostwriter(args: &Args) -> Result<()> {
                     if let Some(output_file) = &args.output_file {
                         std::fs::write(output_file, svg_data)?;
                     }
-                    if !args.no_draw {
-                        draw_svg(svg_data, &mut keyboard, &mut pen)?;
-                    }
+                    draw_svg(svg_data, &mut keyboard, &mut pen, args.save_bitmap.as_ref(), args.no_draw)?;
                     if let Some(model_output_file) = &args.model_output_file {
                         let params = json!({
                             "function": function_name,
@@ -295,11 +297,15 @@ fn draw_text(text: &str, keyboard: &mut Keyboard) -> Result<()> {
     Ok(())
 }
 
-fn draw_svg(svg_data: &str, keyboard: &mut Keyboard, pen: &mut Pen) -> Result<()> {
+fn draw_svg(svg_data: &str, keyboard: &mut Keyboard, pen: &mut Pen, save_bitmap: Option<&String>, no_draw: bool) -> Result<()> {
     keyboard.progress()?;
     let bitmap = svg_to_bitmap(svg_data, REMARKABLE_WIDTH, REMARKABLE_HEIGHT)?;
-    keyboard.progress()?;
-    pen.draw_bitmap(&bitmap)?;
+    if let Some(save_bitmap) = save_bitmap {
+        write_bitmap_to_file(&bitmap, save_bitmap)?;
+    }
+    if !no_draw {
+        pen.draw_bitmap(&bitmap)?;
+    }
     keyboard.progress_end()?;
     Ok(())
 }
@@ -473,9 +479,7 @@ fn claude_assist(args: &Args) -> Result<()> {
                     if let Some(output_file) = &args.output_file {
                         std::fs::write(output_file, svg_data)?;
                     }
-                    if !args.no_draw {
-                        draw_svg(svg_data, &mut keyboard, &mut pen)?;
-                    }
+                    draw_svg(svg_data, &mut keyboard, &mut pen, args.save_bitmap.as_ref(), args.no_draw)?;
                     if let Some(model_output_file) = &args.model_output_file {
                         let params = json!({
                             "function": function_name,

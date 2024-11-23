@@ -11,14 +11,16 @@ pub struct Keyboard {
     device: VirtualDevice,
     key_map: HashMap<char, (Key, bool)>,
     progress_count: u32,
+    no_draw_progress: bool,
 }
 
 impl Keyboard {
-    pub fn new() -> Self {
+    pub fn new(no_draw_progress: bool) -> Self {
         Self {
             device: Self::create_virtual_device(),
             key_map: Self::create_key_map(),
             progress_count: 0,
+            no_draw_progress,
         }
     }
 
@@ -299,12 +301,18 @@ impl Keyboard {
     }
 
     pub fn progress(&mut self) -> Result<()> {
+        if self.no_draw_progress {
+            return Ok(());
+        }
         self.string_to_keypresses(".")?;
         self.progress_count += 1;
         Ok(())
     }
 
     pub fn progress_end(&mut self) -> Result<()> {
+        if self.no_draw_progress {
+            return Ok(());
+        }
         // Send a backspace for each progress
         for _ in 0..self.progress_count {
             self.string_to_keypresses("\x08")?;

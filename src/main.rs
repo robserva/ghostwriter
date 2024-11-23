@@ -42,6 +42,30 @@ struct Args {
     #[arg(short, long)]
     no_submit: bool,
 
+    /// Skip running draw_text or draw_svg
+    #[arg(long)]
+    no_draw: bool,
+
+    /// Disable keyboard progress
+    #[arg(long)]
+    no_draw_progress: bool,
+
+    /// Input PNG file for testing
+    #[arg(long)]
+    input_png: Option<String>,
+
+    /// Output file for testing
+    #[arg(long)]
+    output_file: Option<String>,
+
+    /// Output file for model parameters
+    #[arg(long)]
+    model_output_file: Option<String>,
+
+    /// Save screenshot filename
+    #[arg(long)]
+    save_screenshot: Option<String>,
+
     #[command(subcommand)]
     command: Option<Command>,
 }
@@ -64,7 +88,7 @@ fn main() -> Result<()> {
 }
 
 fn keyboard_test() -> Result<()> {
-    let mut keyboard = Keyboard::new();
+    let mut keyboard = Keyboard::new(false);
     sleep(Duration::from_secs(1)); // Wait for device to get warmed up
                                    // let erase = "\x08".repeat(100);
                                    // let input = erase.as_str();
@@ -82,7 +106,7 @@ fn keyboard_test() -> Result<()> {
 }
 
 fn ghostwriter(args: &Args) -> Result<()> {
-    let mut keyboard = Keyboard::new();
+    let mut keyboard = Keyboard::new(args.no_draw_progress);
     let mut pen = Pen::new();
     let mut touch = Touch::new();
 
@@ -91,19 +115,33 @@ fn ghostwriter(args: &Args) -> Result<()> {
 
     loop {
         println!("Waiting for trigger (hand-touch in the upper-right corner)...");
-        touch.wait_for_trigger()?;
+        if let Some(input_png) = &args.input_png {
+            println!("Using input PNG file: {}", input_png);
+        } else {
+            touch.wait_for_trigger()?;
+        }
 
         keyboard.progress()?;
 
-        // TODO: Show progress indicator using the keyboard in all cases? Some other cool doodle?
-
-        let screenshot = Screenshot::new()?;
-        screenshot.save_image("tmp/screenshot.png")?;
-        let base64_image = screenshot.base64()?;
+        let base64_image = if let Some(input_png) = &args.input_png {
+            std::fs::read(input_png).map(base64::encode)?
+        } else {
+            let screenshot = Screenshot::new()?;
+            if let Some(save_screenshot) = &args.save_screenshot {
+                screenshot.save_image(save_screenshot)?;
+            }
+            screenshot.base64()?
+        };
         keyboard.progress()?;
 
         if args.no_submit {
             println!("Image not submitted to OpenAI due to --no-submit flag");
+            keyboard.progress_end()?;
+            return Ok(());
+        }
+
+        if args.no_draw {
+            println!("Skipping draw_text and draw_svg due to --no-draw flag");
             keyboard.progress_end()?;
             return Ok(());
         }
@@ -206,12 +244,35 @@ fn ghostwriter(args: &Args) -> Result<()> {
             match function_name {
                 "draw_text" => {
                     let text = json_output["text"].as_str().unwrap();
-                    draw_text(text, &mut keyboard)?;
-
+                    if let Some(output_file) = &args.output_file {
+                        std::fs::write(output_file, text)?;
+                    }
+                    if !args.no_draw {
+                        draw_text(text, &mut keyboard)?;
+                    }
+                    if let Some(model_output_file) = &args.model_output_file {
+                        let params = json!({
+                            "function": function_name,
+                            "arguments": json_output
+                        });
+                        std::fs::write(model_output_file, params.to_string())?;
+                    }
                 }
                 "draw_svg" => {
                     let svg_data = json_output["svg"].as_str().unwrap();
-                    draw_svg(svg_data, &mut keyboard, &mut pen)?;
+                    if let Some(output_file) = &args.output_file {
+                        std::fs::write(output_file, svg_data)?;
+                    }
+                    if !args.no_draw {
+                        draw_svg(svg_data, &mut keyboard, &mut pen)?;
+                    }
+                    if let Some(model_output_file) = &args.model_output_file {
+                        let params = json!({
+                            "function": function_name,
+                            "arguments": json_output
+                        });
+                        std::fs::write(model_output_file, params.to_string())?;
+                    }
                 }
                 _ => {
                     keyboard.progress_end()?;
@@ -245,7 +306,7 @@ fn draw_svg(svg_data: &str, keyboard: &mut Keyboard, pen: &mut Pen) -> Result<()
 
 
 fn claude_assist(args: &Args) -> Result<()> {
-    let mut keyboard = Keyboard::new();
+    let mut keyboard = Keyboard::new(args.no_draw_progress);
     let mut pen = Pen::new();
     let mut touch = Touch::new();
 
@@ -254,15 +315,23 @@ fn claude_assist(args: &Args) -> Result<()> {
 
     loop {
         println!("Waiting for trigger (hand-touch in the upper-right corner)...");
-        touch.wait_for_trigger()?;
+        if let Some(input_png) = &args.input_png {
+            println!("Using input PNG file: {}", input_png);
+        } else {
+            touch.wait_for_trigger()?;
+        }
 
         keyboard.progress()?;
 
-        // TODO: Show progress indicator using the keyboard in all cases? Some other cool doodle?
-
-        let screenshot = Screenshot::new()?;
-        screenshot.save_image("tmp/screenshot.png")?;
-        let base64_image = screenshot.base64()?;
+        let base64_image = if let Some(input_png) = &args.input_png {
+            std::fs::read(input_png).map(base64::encode)?
+        } else {
+            let screenshot = Screenshot::new()?;
+            if let Some(save_screenshot) = &args.save_screenshot {
+                screenshot.save_image(save_screenshot)?;
+            }
+            screenshot.base64()?
+        };
         keyboard.progress()?;
 
         if args.no_submit {
@@ -385,11 +454,35 @@ fn claude_assist(args: &Args) -> Result<()> {
             match function_name {
                 "draw_text" => {
                     let text = arguments["text"].as_str().unwrap();
-                    draw_text(text, &mut keyboard)?;
+                    if let Some(output_file) = &args.output_file {
+                        std::fs::write(output_file, text)?;
+                    }
+                    if !args.no_draw {
+                        draw_text(text, &mut keyboard)?;
+                    }
+                    if let Some(model_output_file) = &args.model_output_file {
+                        let params = json!({
+                            "function": function_name,
+                            "arguments": arguments
+                        });
+                        std::fs::write(model_output_file, params.to_string())?;
+                    }
                 }
                 "draw_svg" => {
                     let svg_data = arguments["svg"].as_str().unwrap();
-                    draw_svg(svg_data, &mut keyboard, &mut pen)?;
+                    if let Some(output_file) = &args.output_file {
+                        std::fs::write(output_file, svg_data)?;
+                    }
+                    if !args.no_draw {
+                        draw_svg(svg_data, &mut keyboard, &mut pen)?;
+                    }
+                    if let Some(model_output_file) = &args.model_output_file {
+                        let params = json!({
+                            "function": function_name,
+                            "arguments": arguments
+                        });
+                        std::fs::write(model_output_file, params.to_string())?;
+                    }
                 }
                 _ => {
                     keyboard.progress_end()?;

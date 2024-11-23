@@ -9,6 +9,3 @@ rustflags = [
   "-C", "link-arg=--sysroot=<toolchain_install_path>/sysroots/cortexa7hf-neon-remarkable-linux-gnueabi",
 ]
 
-[build]
-# Set the default --target flag
-target = "armv7-unknown-linux-gnueabihf"

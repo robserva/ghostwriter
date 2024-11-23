@@ -72,6 +72,10 @@ struct Args {
     #[arg(long)]
     save_bitmap: Option<String>,
 
+    /// Disable looping
+    #[arg(long)]
+    no_loop: bool,
+
     #[command(subcommand)]
     command: Option<Command>,
 }
@@ -95,7 +99,7 @@ fn main() -> Result<()> {
 }
 
 fn keyboard_test() -> Result<()> {
-    let mut keyboard = Keyboard::new(false);
+    let mut keyboard = Keyboard::new(false, false);
     sleep(Duration::from_secs(1)); // Wait for device to get warmed up
                                    // let erase = "\x08".repeat(100);
                                    // let input = erase.as_str();
@@ -113,18 +117,18 @@ fn keyboard_test() -> Result<()> {
 }
 
 fn ghostwriter(args: &Args) -> Result<()> {
-    let mut keyboard = Keyboard::new(args.no_draw_progress);
-    let mut pen = Pen::new();
+    let mut keyboard = Keyboard::new(args.no_draw, args.no_draw_progress);
+    let mut pen = Pen::new(args.no_draw);
     let mut touch = Touch::new();
 
     // Default to regular text size
     keyboard.key_cmd_body()?;
 
     loop {
-        println!("Waiting for trigger (hand-touch in the upper-right corner)...");
         if let Some(input_png) = &args.input_png {
             println!("Using input PNG file: {}", input_png);
         } else {
+            println!("Waiting for trigger (hand-touch in the upper-right corner)...");
             touch.wait_for_trigger()?;
         }
 
@@ -288,6 +292,10 @@ fn ghostwriter(args: &Args) -> Result<()> {
             keyboard.progress_end()?;
             return Err(anyhow::anyhow!("No tool call found in response"))
         }
+
+        if args.no_loop {
+            break Ok(());
+        }
     }
 }
 
@@ -315,18 +323,18 @@ fn draw_svg(svg_data: &str, keyboard: &mut Keyboard, pen: &mut Pen, save_bitmap:
 
 
 fn claude_assist(args: &Args) -> Result<()> {
-    let mut keyboard = Keyboard::new(args.no_draw_progress);
-    let mut pen = Pen::new();
+    let mut keyboard = Keyboard::new(args.no_draw, args.no_draw_progress);
+    let mut pen = Pen::new(args.no_draw);
     let mut touch = Touch::new();
 
     // Default to regular text size
     keyboard.key_cmd_body()?;
 
     loop {
-        println!("Waiting for trigger (hand-touch in the upper-right corner)...");
         if let Some(input_png) = &args.input_png {
             println!("Using input PNG file: {}", input_png);
         } else {
+            println!("Waiting for trigger (hand-touch in the upper-right corner)...");
             touch.wait_for_trigger()?;
         }
 
@@ -499,6 +507,10 @@ fn claude_assist(args: &Args) -> Result<()> {
         } else {
             keyboard.progress_end()?;
             return Err(anyhow::anyhow!("No tool call found in response"))
+        }
+
+        if args.no_loop {
+            break Ok(());
         }
     }
 }

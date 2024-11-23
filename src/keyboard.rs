@@ -8,16 +8,22 @@ use evdev::{
 };
 
 pub struct Keyboard {
-    device: VirtualDevice,
+    device: Option<VirtualDevice>,
     key_map: HashMap<char, (Key, bool)>,
     progress_count: u32,
     no_draw_progress: bool,
 }
 
 impl Keyboard {
-    pub fn new(no_draw_progress: bool) -> Self {
+    pub fn new(no_draw: bool, no_draw_progress: bool) -> Self {
+        let device = if no_draw {
+            None
+        } else {
+            Some(Self::create_virtual_device())
+        };
+
         Self {
-            device: Self::create_virtual_device(),
+            device,
             key_map: Self::create_key_map(),
             progress_count: 0,
             no_draw_progress,
@@ -217,53 +223,53 @@ impl Keyboard {
     }
 
     pub fn key_down(&mut self, key: Key) -> Result<()> {
-        self.device
-            .emit(&[(InputEvent::new(EventType::KEY, key.code(), 1))])?;
+        if let Some(device) = &mut self.device {
+            device.emit(&[(InputEvent::new(EventType::KEY, key.code(), 1))])?;
+        }
         Ok(())
     }
 
     pub fn key_up(&mut self, key: Key) -> Result<()> {
-        self.device
-            .emit(&[(InputEvent::new(EventType::KEY, key.code(), 0))])?;
+        if let Some(device) = &mut self.device {
+            device.emit(&[(InputEvent::new(EventType::KEY, key.code(), 0))])?;
+        }
         Ok(())
     }
 
     pub fn string_to_keypresses(&mut self, input: &str) -> Result<(), evdev::Error> {
-        for c in input.chars() {
-            if let Some(&(key, shift)) = self.key_map.get(&c) {
-                if shift {
-                    // Press Shift
-                    self.device.emit(&[InputEvent::new(
-                        EventType::KEY,
-                        Key::KEY_LEFTSHIFT.code(),
-                        1,
-                    )])?;
+        if let Some(device) = &mut self.device {
+            for c in input.chars() {
+                if let Some(&(key, shift)) = self.key_map.get(&c) {
+                    if shift {
+                        // Press Shift
+                        device.emit(&[InputEvent::new(
+                            EventType::KEY,
+                            Key::KEY_LEFTSHIFT.code(),
+                            1,
+                        )])?;
+                    }
+
+                    // Press key
+                    device.emit(&[InputEvent::new(EventType::KEY, key.code(), 1)])?;
+
+                    // Release key
+                    device.emit(&[InputEvent::new(EventType::KEY, key.code(), 0)])?;
+
+                    if shift {
+                        // Release Shift
+                        device.emit(&[InputEvent::new(
+                            EventType::KEY,
+                            Key::KEY_LEFTSHIFT.code(),
+                            0,
+                        )])?;
+                    }
+
+                    // Sync event
+                    device.emit(&[InputEvent::new(EventType::SYNCHRONIZATION, 0, 0)])?;
+                    thread::sleep(time::Duration::from_millis(10));
                 }
-
-                // Press key
-                self.device
-                    .emit(&[InputEvent::new(EventType::KEY, key.code(), 1)])?;
-
-                // Release key
-                self.device
-                    .emit(&[InputEvent::new(EventType::KEY, key.code(), 0)])?;
-
-                if shift {
-                    // Release Shift
-                    self.device.emit(&[InputEvent::new(
-                        EventType::KEY,
-                        Key::KEY_LEFTSHIFT.code(),
-                        0,
-                    )])?;
-                }
-
-                // Sync event
-                self.device
-                    .emit(&[InputEvent::new(EventType::SYNCHRONIZATION, 0, 0)])?;
-                thread::sleep(time::Duration::from_millis(10));
             }
         }
-
         Ok(())
     }
 

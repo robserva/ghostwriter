@@ -9,6 +9,8 @@ use clap::{Parser, Subcommand};
 use std::thread::sleep;
 use std::time::Duration;
 
+use dotenv::dotenv;
+
 mod keyboard;
 use crate::keyboard::Keyboard;
 
@@ -82,6 +84,7 @@ enum Command {
 }
 
 fn main() -> Result<()> {
+    dotenv().ok();
     let args = Args::parse();
 
     match &args.command {

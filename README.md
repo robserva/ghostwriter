@@ -135,17 +135,14 @@ scp target/armv7-unknown-linux-gnueabihf/release/ghostwriter remarkable:
 
 ## Scratch
 
-I got evtest by getting the ipkg from trotek and untaring it a few levels and then scping it over. Surprisingly it works!
+```
+# Run an evaluation
+./target/release/ghostwriter --input-png evaluations/x_in_box/input.png --output-file tmp/result.out --model-output-file tmp/result.json --save-bitmap tmp/result.png --no-draw --no-draw-progress --no-loop claude-assist
 
-Now I can see that /dev/input/event1 is pen input and /dev/input/event2 is touch input
+# Layer the input and output
+magick \( evaluations/x_in_box/input.png -colorspace RGB \) \( tmp/result.png -type truecolormatte -transparent white -fill red -colorize 100 \) -compose Over -composite tmp/merged-output.png
+```
 
-You can detect distance. The value gets smaller as you get close to the screen with the tip of the pen or eraser
-
-  Event: time 1728139017.789746, type 3 (EV_ABS), code 25 (ABS_DISTANCE), value 105
-
-EV_KEY 320 (BTN_TOOL_PEN) is for pen presence/range
-EV_KEY 330 (BTN_TOUCH) is for actual drawing
-
-* https://github.com/rmkit-dev/rmkit/tree/master is great to learn from
-* https://github.com/rmkit-dev/rmkit/blob/master/src/lamp/main.cpy -- they've already worked out some other pen-input-drawing! See if we can translate or learn about a reliable way to draw
+Resize from 1872x1404 to 1268x951 px (I think claude does it for us already)
+OR maybe 768x1024 is better. Same ratio, but "standard" XGA
 

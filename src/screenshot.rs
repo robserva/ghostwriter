@@ -15,6 +15,9 @@ const WINDOW_BYTES: usize = WIDTH * HEIGHT * BYTES_PER_PIXEL;
 const REMARKABLE_WIDTH: u32 = 1404;
 const REMARKABLE_HEIGHT: u32 = 1872;
 
+const OUTPUT_WIDTH: u32 = 768;
+const OUTPUT_HEIGHT: u32 = 1024;
+
 pub struct Screenshot {
     data: Vec<u8>,
 }
@@ -79,9 +82,24 @@ impl Screenshot {
     }
 
     fn process_image(data: Vec<u8>) -> Result<Vec<u8>> {
-        // Implement image processing here (transpose, color correction, etc.)
-        // For now, we'll just encode the raw data to PNG
-        Ok(Self::encode_png(&data)?)
+        // Encode the raw data to PNG
+        let png_data = Self::encode_png(&data)?;
+
+        // Resize the PNG to OUTPUT_WIDTH x OUTPUT_HEIGHT
+        let img = image::load_from_memory(&png_data)?;
+        let resized_img = img.resize(OUTPUT_WIDTH, OUTPUT_HEIGHT, image::imageops::FilterType::Lanczos3);
+
+        // Encode the resized image back to PNG
+        let mut resized_png_data = Vec::new();
+        let encoder = image::codecs::png::PngEncoder::new(&mut resized_png_data);
+        encoder.encode(
+            resized_img.as_luma8().unwrap().as_raw(),
+            OUTPUT_WIDTH,
+            OUTPUT_HEIGHT,
+            image::ColorType::L8,
+        )?;
+
+        Ok(resized_png_data)
     }
 
     fn encode_png(raw_data: &[u8]) -> Result<Vec<u8>> {

@@ -26,8 +26,8 @@ use crate::touch::Touch;
 mod util;
 use crate::util::{svg_to_bitmap, write_bitmap_to_file};
 
-const REMARKABLE_WIDTH: u32 = 1404;
-const REMARKABLE_HEIGHT: u32 = 1872;
+const REMARKABLE_WIDTH: u32 = 768;
+const REMARKABLE_HEIGHT: u32 = 1024;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -218,7 +218,7 @@ fn ghostwriter(args: &Args) -> Result<()> {
                 "content": [
                 {
                     "type": "text",
-                    "text": "You are a helpful assistant. You live inside of a remarkable2 notepad, which has a 1404x1872 sized screen which can only display grayscale. Your input is the current content of the screen, which may contain content written by the user or previously written by you (the assistant). Look at this content, interpret it, and respond to the content. The content will contain handwritten notes, diagrams, and maybe typewritten text. Respond by calling a tool. Call draw_text to output text which will be sent using simulated keyboard input. Call draw_svg to respond with an SVG drawing which will be drawn on top of the existing content. Try to place the output on the screen at coordinates that make sense. If you need to place text at a very specific location, you should output an SVG instead of keyboard text."
+                    "text": "You are a helpful assistant. You live inside of a remarkable2 notepad, which has a 768x1024 px sized screen which can only display grayscale. Your input is the current content of the screen, which may contain content written by the user or previously written by you (the assistant). Look at this content, interpret it, and respond to the content. The content will contain handwritten notes, diagrams, and maybe typewritten text. Respond by calling a tool. Call draw_text to output text which will be sent using simulated keyboard input. Call draw_svg to respond with an SVG drawing which will be drawn on top of the existing content. Try to place the output on the screen at coordinates that make sense. If you need to place text at a very specific location, you should output an SVG instead of keyboard text."
                 },
 
                 {
@@ -367,11 +367,11 @@ fn claude_assist(args: &Args) -> Result<()> {
                 "properties": {
                     "input_description": {
                         "type": "string",
-                        "description": "Description of what was detected in the input image"
+                        "description": "Description of what was detected in the input image. Include the x,y,w,h bounding box coordinates of interesting regions."
                     },
                     "output_description": {
                         "type": "string",
-                        "description": "Description of what will be output"
+                        "description": "Description of what will be output. Include x,y,w,h bounding box coordinates of specific regions."
                     },
                     "text": {
                         "type": "string",
@@ -389,11 +389,11 @@ fn claude_assist(args: &Args) -> Result<()> {
                 "properties": {
                     "input_description": {
                         "type": "string",
-                        "description": "Description of what was detected in the input image"
+                        "description": "Description of what was detected in the input image. Include the exact pixel x, y, width, height bounding box coordinates of everything."
                     },
                     "output_description": {
                         "type": "string",
-                        "description": "Description of what will be drawn"
+                        "description": "Description of what will be drawn. Include the exact pixel x, y, width, height bounding box coordinates of what you want to draw."
                     },
                     "svg": {
                         "type": "string",
@@ -414,7 +414,7 @@ fn claude_assist(args: &Args) -> Result<()> {
                 "content": [
                     {
                         "type": "text",
-                        "text": "You are a helpful assistant. You live inside of a remarkable2 notepad, which has a 1404x1872 sized screen which can only display grayscale. Your input is the current content of the screen, which may contain content written by the user or previously written by you (the assistant). Look at this content, interpret it, and respond to the content. The content will contain handwritten notes, diagrams, and maybe typewritten text. Respond by calling a tool. Call draw_text to output text which will be sent using simulated keyboard input. Call draw_svg to respond with an SVG drawing which will be drawn on top of the existing content. Try to place the output on the screen at coordinates that make sense. If you need to place text at a very specific location, you should output an SVG instead of keyboard text."
+                        "text": "You are a helpful assistant. You live inside of a remarkable2 notepad, which has a 768x1024 px sized screen which can only display grayscale. Your input is the current content of the screen, which may contain content written by the user or previously written by you (the assistant). Look at this content, interpret it, and respond to the content. The content will contain handwritten notes, diagrams, and maybe typewritten text. Respond by calling a tool. Call draw_text to output text which will be sent using simulated keyboard input. Call draw_svg to respond with an SVG drawing which will be drawn on top of the existing content. Try to place the output on the screen at coordinates that make sense. If you need to place text at a very specific location, you should output an SVG instead of keyboard text."
                     },
                     {
                         "type": "image",

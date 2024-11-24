@@ -6,8 +6,8 @@ use std::time::Duration;
 const INPUT_WIDTH: usize = 15725;
 const INPUT_HEIGHT: usize = 20966;
 
-const REMARKABLE_WIDTH: u32 = 1404;
-const REMARKABLE_HEIGHT: u32 = 1872;
+const REMARKABLE_WIDTH: u32 = 768;
+const REMARKABLE_HEIGHT: u32 = 1024;
 
 pub struct Pen {
     device: Option<Device>,

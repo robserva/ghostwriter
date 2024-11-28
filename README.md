@@ -72,7 +72,7 @@ Draw some stuff on your screen, and then trigger the assistant by *touching/tapp
   * Starting to sketch out how an evaluation might work
   * First I've added a bunch of parameters for recording input/output
   * Then I use that to record a sample input and output on the device
-  * Then I added support to run ghostwriter on my laptop using the pre-captured input
+  * Then I added support to run ghostwriter on my laptop using the pre-captured input (build with `./build.sh local`)
   * Next I will build some tooling around iterating on examples given different prompts or pre-processing
   * And then if I can get enough examples maye I'll have to make an AI judge to scale :)
   * To help with that ... on idea is to make overlay the original input with the output but make the output a different color to make it differentiable by the judge
@@ -125,11 +125,13 @@ Draw some stuff on your screen, and then trigger the assistant by *touching/tapp
   * In general this would also make it easier to handle scrolling maybe
 
 ## References
+* Generally pulled resources from [Awesome reMarkable](https://github.com/reHackable/awesome-reMarkable)
 * Adapted screen capture from [reSnap](https://github.com/cloudsftp/reSnap)
 * Techniques for screen-drawing inspired from [rmkit lamp](https://github.com/rmkit-dev/rmkit/blob/master/src/lamp/main.cpy)
 * Super cool SVG-to-png done with [resvg](https://github.com/RazrFalcon/resvg)
 * Make the keyboard input device even without a keyboard via [rM-input-devices](https://github.com/pl-semiotics/rM-input-devices)
 * Not quite the same, but I recently found [reMarkableAI](https://github.com/nickian/reMarkableAI) that does OCR→OpenAI→PDF→Device
+* I haven't adopted anything from it yet, but [Crazy Cow](https://github.com/machinelevel/sp425-crazy-cow) is a cool/crazy tool that turns text into pen strokes for the reMarkable1
 
 ## Development
 
@@ -149,6 +151,13 @@ scp target/armv7-unknown-linux-gnueabihf/release/ghostwriter remarkable:
 ## Scratch
 
 ```
+# Record an evaluation on the device
+
+# On local, copy the evaluation to local and then put it into a folder
+scp -r remarkable:tmp/ ./
+mkdir evaluations/tic_tac_toe_1
+mv tmp/* evaluations/tic_tac_toe_1
+
 # Run an evaluation
 ./target/release/ghostwriter --input-png evaluations/x_in_box/input.png --output-file tmp/result.out --model-output-file tmp/result.json --save-bitmap tmp/result.png --no-draw --no-draw-progress --no-loop claude-assist
 

@@ -110,6 +110,19 @@ Draw some stuff on your screen, and then trigger the assistant by *touching/tapp
   * Some of these, such as TODO-extraction, might have specific expectations for output or execution, but most of them won't
   * Run through the system to get example output -- text, svg, actions
   * Write a test suite to judge the results .... somewhat human powered? Separate VLM judge?
+* Conversation Mode
+  * On a single screen, keep track of each version of the screen betweent turns
+  * So first send would be the screen
+  * Second send would be the original screen and then the response screen (maybe with claude output in red) and then the new additions (maybe in green?)
+    * This could then be a whole chain for the page
+    * Could have two separate buttons to trigger the VLM -- one for "new prompt" and one for "continue"
+  * OR we could make it so that every time it was the last three:
+    * Black: Original
+    * Red: Claude response
+    * Green: New input
+  * Or could use the same color structure but a whole chain of messages?
+  * Might be weird when we go to a new blank page though. It'd look like the new input erased everything
+  * In general this would also make it easier to handle scrolling maybe
 
 ## References
 * Adapted screen capture from [reSnap](https://github.com/cloudsftp/reSnap)

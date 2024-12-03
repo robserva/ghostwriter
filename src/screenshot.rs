@@ -6,6 +6,7 @@ use std::io::{Read, Seek};
 use std::process;
 
 use base64::{engine::general_purpose, Engine as _};
+use image::ImageEncoder;
 
 const WIDTH: usize = 1872;
 const HEIGHT: usize = 1404;
@@ -92,11 +93,11 @@ impl Screenshot {
         // Encode the resized image back to PNG
         let mut resized_png_data = Vec::new();
         let encoder = image::codecs::png::PngEncoder::new(&mut resized_png_data);
-        encoder.encode(
+        encoder.write_image(
             resized_img.as_luma8().unwrap().as_raw(),
             OUTPUT_WIDTH,
             OUTPUT_HEIGHT,
-            image::ColorType::L8,
+            image::ExtendedColorType::L8,
         )?;
 
         Ok(resized_png_data)
@@ -124,11 +125,11 @@ impl Screenshot {
 
         let mut png_data = Vec::new();
         let encoder = image::codecs::png::PngEncoder::new(&mut png_data);
-        encoder.encode(
+        encoder.write_image(
             img.as_raw(),
             REMARKABLE_WIDTH as u32,
             REMARKABLE_HEIGHT as u32,
-            image::ColorType::L8,
+            image::ExtendedColorType::L8,
         )?;
 
         Ok(png_data)

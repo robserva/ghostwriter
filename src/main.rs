@@ -79,6 +79,10 @@ struct Args {
     #[arg(long)]
     no_loop: bool,
 
+    /// Apply segmentation
+    #[arg(long)]
+    apply_segmentation: bool,
+
     #[command(subcommand)]
     command: Option<Command>,
 }
@@ -356,10 +360,15 @@ fn claude_assist(args: &Args) -> Result<()> {
         }
 
         // Analyze the image to get bounding box descriptions
-        let segmentation_description = match analyze_image(&args.input_png.clone().unwrap_or("screenshot.png".to_string())) {
-            Ok(description) => description,
-            Err(e) => format!("Error analyzing image: {}", e),
+        let segmentation_description = if args.apply_segmentation {
+            match analyze_image(&args.save_screenshot.clone().unwrap_or(args.input_png.clone().unwrap())) {
+                Ok(description) => description,
+                Err(e) => format!("Error analyzing image: {}", e),
+            }
+        } else {
+            String::new()
         };
+        println!("Segmentation description: {}", segmentation_description);
 
         let api_key = std::env::var("ANTHROPIC_API_KEY")?;
         let tools = json!([
@@ -457,7 +466,11 @@ fn claude_assist(args: &Args) -> Result<()> {
                     },
                     {
                         "type": "text",
-                        "text": format!("Here are interesting regions based on an automatic segmentation algorithm. Use them to help identify the exact location of interesting features.\n\n{}", segmentation_description)
+                        "text": if args.apply_segmentation {
+                            format!("Here are interesting regions based on an automatic segmentation algorithm. Use them to help identify the exact location of interesting features.\n\n{}", segmentation_description)
+                        } else {
+                            "Use your imagination to segment the input image.".to_string()
+                        }
                     },
                     {
                         "type": "image",

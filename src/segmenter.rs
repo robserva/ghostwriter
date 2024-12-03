@@ -1,104 +1,84 @@
-use opencv::{
-    prelude::*,
-    core::{Point, Rect, Scalar, Vec4i, Mat, MatTraitConst},
-    imgproc::{
-        self, CHAIN_APPROX_SIMPLE, RETR_EXTERNAL,
-        connected_components, ConnectedComponentsTypes,
-    },
-    imgcodecs,
-    Error as OpenCvError,
+use image::{GrayImage, Rgb, RgbImage};
+use imageproc::contours::{find_contours, Contour};
+use imageproc::{
+    point::Point,
+    geometry::{contour_area, min_area_rect},
 };
 use serde::Serialize;
 
 #[derive(Debug, Serialize)]
 pub struct Region {
-    pub bounds: (i32, i32, i32, i32), // x, y, width, height
-    pub center: (i32, i32),
-    pub area: f64,
-    pub contour_points: Vec<(i32, i32)>,
+    pub bounds: (u32, u32, u32, u32), // x, y, width, height
+    pub area: u32,
+    pub contour_points: Vec<(u32, u32)>,
 }
 
 #[derive(Debug, Serialize)]
 pub struct SegmentationResult {
     pub regions: Vec<Region>,
-    pub image_size: (i32, i32),
+    pub image_size: (u32, u32),
 }
 
 pub struct ImageAnalyzer {
-    min_region_size: f64,
+    min_region_size: f32,
     max_regions: usize,
 }
 
 impl ImageAnalyzer {
-    pub fn new(min_region_size: f64, max_regions: usize) -> Self {
+    pub fn new(min_region_size: f32, max_regions: usize) -> Self {
         Self {
             min_region_size,
             max_regions,
         }
     }
 
-    pub fn analyze_image_file(&self, image_path: &str) -> Result<SegmentationResult, OpenCvError> {
+    pub fn analyze_image(&self, image_path: &str) -> Result<SegmentationResult, Box<dyn std::error::Error>> {
         println!("Reading image from: {}", image_path);
-
-        // Read image
-        let image = imgcodecs::imread(image_path, imgcodecs::IMREAD_COLOR)?;
-        let (height, width) = (image.rows(), image.cols());
+        
+        // Read image and convert to grayscale
+        let img = image::open(image_path)?.to_rgb8();
+        let (width, height) = img.dimensions();
         println!("Image loaded: {}x{}", width, height);
-
+        
         // Convert to grayscale
-        let mut gray = Mat::default();
-        imgproc::cvt_color(&image, &mut gray, imgproc::COLOR_BGR2GRAY, 0)?;
-
-        // Apply adaptive threshold
-        let mut binary = Mat::default();
-        imgproc::adaptive_threshold(
-            &gray,
-            &mut binary,
-            255.0,
-            imgproc::ADAPTIVE_THRESH_GAUSSIAN_C,
-            imgproc::THRESH_BINARY_INV,
-            11,
-            2.0,
-        )?;
+        let gray: GrayImage = image::imageops::grayscale(&img);
+        
+        // Simple thresholding
+        let binary = gray.clone().into_raw()
+            .into_iter()
+            .map(|p| if p > 127 { 255 } else { 0 })
+            .collect::<Vec<u8>>();
+        let binary = GrayImage::from_raw(width, height, binary)
+            .ok_or("Failed to create binary image")?;
 
         // Find contours
-        let mut contours = opencv::types::VectorOfVectorOfPoint::new();
-
-        imgproc::find_contours(
-            &binary,
-            &mut contours,
-            RETR_EXTERNAL as i32,
-            CHAIN_APPROX_SIMPLE as i32,
-            Point::new(0, 0),
-        )?;
-
+        let contours = find_contours(&binary);
         println!("Found {} contours", contours.len());
 
         // Process regions
         let mut regions = Vec::new();
-        let min_area = (width * height) as f64 * self.min_region_size;
+        let min_area = (width * height) as f32 * self.min_region_size;
 
-        for i in 0..contours.len() {
-            let contour = contours.get(i)?;
-            let area = imgproc::contour_area(&contour, false)?;
-
+        for contour in contours {
+            let area = contour_area(&contour.points) as f32;
+            
             if area >= min_area {
-                let bounds = imgproc::bounding_rect(&contour)?;
-                let moments = imgproc::moments(&contour, false)?;
+                let bounds = min_area_rect(&contour.points);
+                let x_min = bounds.iter().map(|p| p.x).min().unwrap_or(0) as u32;
+                let y_min = bounds.iter().map(|p| p.y).min().unwrap_or(0) as u32;
+                let x_max = bounds.iter().map(|p| p.x).max().unwrap_or(0) as u32;
+                let y_max = bounds.iter().map(|p| p.y).max().unwrap_or(0) as u32;
+                let width = x_max - x_min;
+                let height = y_max - y_min;
 
-                // Calculate centroid
-                let center_x = (moments.m10 / moments.m00) as i32;
-                let center_y = (moments.m01 / moments.m00) as i32;
-
-                // Convert contour points to Vec
-                let contour_points: Vec<(i32, i32)> = contour.iter()
-                    .map(|p| (p.x, p.y))
+                let contour_points: Vec<(u32, u32)> = contour.points
+                    .iter()
+                    .map(|p| (p.x as u32, p.y as u32))
                     .collect();
 
                 regions.push(Region {
-                    bounds: (bounds.x, bounds.y, bounds.width, bounds.height),
-                    center: (center_x, center_y),
-                    area,
+                    bounds: (x_min, y_min, width, height),
+                    area: area as u32,
                     contour_points,
                 });
             }
@@ -116,30 +96,6 @@ impl ImageAnalyzer {
         })
     }
 
-    pub fn analyze_with_connected_components(&self, image_path: &str)
-        -> Result<Mat, OpenCvError> {
-        let image = imgcodecs::imread(image_path, imgcodecs::IMREAD_COLOR)?;
-        let mut gray = Mat::default();
-        imgproc::cvt_color(&image, &mut gray, imgproc::COLOR_BGR2GRAY, 0)?;
-
-        let mut binary = Mat::default();
-        imgproc::threshold(&gray, &mut binary, 127.0, 255.0, imgproc::THRESH_BINARY)?;
-
-        // Connected components with stats
-        let mut labels = Mat::default();
-        let mut stats = Mat::default();
-        let mut centroids = Mat::default();
-
-        connected_components(
-            &binary,
-            &mut labels,
-            8,
-            opencv::core::CV_32S,
-        )?;
-
-        Ok(labels)
-    }
-
     pub fn generate_description(&self, result: &SegmentationResult) -> String {
         let mut description = format!(
             "Image size: {}x{}\nDetected {} regions:\n\n",
@@ -153,73 +109,111 @@ impl ImageAnalyzer {
                 "Region {}:\n\
                  - Position: ({}, {})\n\
                  - Size: {}x{}\n\
-                 - Center: ({}, {})\n\
-                 - Area: {:.2} pixels\n\
+                 - Area: {} pixels\n\
                  - Relative position: {:.2}%, {:.2}%\n\n",
                 i + 1,
                 region.bounds.0,
                 region.bounds.1,
                 region.bounds.2,
                 region.bounds.3,
-                region.center.0,
-                region.center.1,
                 region.area,
-                (region.center.0 as f64 / result.image_size.0 as f64) * 100.0,
-                (region.center.1 as f64 / result.image_size.1 as f64) * 100.0,
+                (region.bounds.0 as f32 / result.image_size.0 as f32) * 100.0,
+                (region.bounds.1 as f32 / result.image_size.1 as f32) * 100.0,
             ));
         }
 
         description
     }
+
+    // Optional: Add a method to visualize the regions
+    pub fn visualize_regions(&self, result: &SegmentationResult) -> Result<RgbImage, Box<dyn std::error::Error>> {
+        let mut output = RgbImage::new(result.image_size.0, result.image_size.1);
+
+        // Draw regions in different colors
+        for (i, region) in result.regions.iter().enumerate() {
+            let color = Rgb([
+                ((i * 90) % 255) as u8,
+                ((i * 140) % 255) as u8,
+                ((i * 200) % 255) as u8
+            ]);
+
+            // Draw contour
+            for point in &region.contour_points {
+                if point.0 < output.width() && point.1 < output.height() {
+                    output.put_pixel(point.0, point.1, color);
+                }
+            }
+        }
+
+        Ok(output)
+    }
 }
 
-pub fn analyze_image(image_path: &str) -> Result<String, OpenCvError> {
-    let analyzer = ImageAnalyzer::new(0.01, 10);
+pub fn analyze_image(image_path: &str) -> Result<String, Box<dyn std::error::Error>> {
+    println!("Reading image from: {}", image_path);
+    
+    // Read image and convert to grayscale
+    let img = image::open(image_path)?.to_rgb8();
+    let (width, height) = img.dimensions();
+    println!("Image loaded: {}x{}", width, height);
+    
+    // Convert to grayscale
+    let gray: GrayImage = image::imageops::grayscale(&img);
+    
+    // Simple thresholding
+    let binary = gray.clone().into_raw()
+        .into_iter()
+        .map(|p| if p > 127 { 255 } else { 0 })
+        .collect::<Vec<u8>>();
+    let binary = GrayImage::from_raw(width, height, binary)
+        .ok_or("Failed to create binary image")?;
 
-    println!("\n=== Contour-based Analysis ===");
-    let description = match analyzer.analyze_image_file(image_path) {
-        Ok(result) => analyzer.generate_description(&result),
-        Err(e) => format!("Error analyzing image with contours: {}", e),
-    };
+    // Find contours
+    let contours = find_contours(&binary);
+    println!("Found {} contours", contours.len());
 
-    println!("\n=== Connected Components Analysis ===");
-    match analyzer.analyze_with_connected_components(image_path) {
-        Ok(labels) => {
-            println!("Label matrix size: {}x{}", labels.rows(), labels.cols());
+    // Process regions
+    let mut regions = Vec::new();
+    let min_area = (width * height) as f32 * 0.01; // Assuming min_region_size is 0.01
 
-            // Get the label data
-            match unsafe { labels.data_typed::<i32>() } {
-                Ok(label_data) => {
-                    // Print a small section of the label matrix as a sample
-                    println!("\nSample of label matrix (top-left 10x10 if available):");
-                    let rows = std::cmp::min(10, labels.rows());
-                    let cols = std::cmp::min(10, labels.cols());
+    for contour in contours {
+        let area = contour_area(&contour.points) as f32;
+        
+        if area >= min_area {
+            let bounds = min_area_rect(&contour.points);
+            let x_min = bounds.iter().map(|p| p.x).min().unwrap_or(0) as u32;
+            let y_min = bounds.iter().map(|p| p.y).min().unwrap_or(0) as u32;
+            let x_max = bounds.iter().map(|p| p.x).max().unwrap_or(0) as u32;
+            let y_max = bounds.iter().map(|p| p.y).max().unwrap_or(0) as u32;
+            let width = x_max - x_min;
+            let height = y_max - y_min;
 
-                    for i in 0..rows {
-                        for j in 0..cols {
-                            let idx = (i * labels.cols() + j) as usize;
-                            print!("{:3} ", label_data[idx]);
-                        }
-                        println!();
-                    }
+            let contour_points: Vec<(u32, u32)> = contour.points
+                .iter()
+                .map(|p| (p.x as u32, p.y as u32))
+                .collect();
 
-                    // Count occurrences of each label
-                    let mut label_counts = std::collections::HashMap::new();
-                    for &label in label_data.iter() {
-                        *label_counts.entry(label).or_insert(0) += 1;
-                    }
-
-                    println!("\nLabel counts:");
-                    for (&label, count) in label_counts.iter() {
-                        println!("Label {}: {} pixels", label, count);
-                    }
-                },
-                Err(e) => println!("Error accessing label data: {}", e),
-            }
-        },
-        Err(e) => println!("Error analyzing image with connected components: {}", e),
+            regions.push(Region {
+                bounds: (x_min, y_min, width, height),
+                area: area as u32,
+                contour_points,
+            });
+        }
     }
 
-    println!("\nAnalysis complete");
-    Ok(description)
+    // Sort by area and limit number of regions
+    regions.sort_by(|a, b| b.area.partial_cmp(&a.area).unwrap());
+    regions.truncate(10); // Assuming max_regions is 10
+
+    println!("Processed {} significant regions", regions.len());
+
+    let mut result = String::new();
+    for region in regions {
+        result.push_str(&format!(
+            "Region: x={}, y={}, width={}, height={}\n",
+            region.bounds.0, region.bounds.1, region.bounds.2, region.bounds.3
+        ));
+    }
+
+    Ok(result)
 }

@@ -174,7 +174,7 @@ pub fn analyze_image(image_path: &str) -> Result<String, Box<dyn std::error::Err
 
     // Process regions
     let mut regions = Vec::new();
-    let min_area = (width * height) as f32 * 0.001; // Assuming min_region_size is 0.01
+    let min_area = 50.0; // (width * height) as f32 * 0.001; // Assuming min_region_size is 0.01
     println!("Min region area: {}", min_area);
 
     for contour in contours {

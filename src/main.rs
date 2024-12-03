@@ -361,7 +361,8 @@ fn claude_assist(args: &Args) -> Result<()> {
 
         // Analyze the image to get bounding box descriptions
         let segmentation_description = if args.apply_segmentation {
-            match analyze_image(&args.save_screenshot.clone().unwrap_or(args.input_png.clone().unwrap())) {
+            let input_filename = args.input_png.clone().unwrap_or(args.save_screenshot.clone().unwrap());
+            match analyze_image(input_filename.as_str()) {
                 Ok(description) => description,
                 Err(e) => format!("Error analyzing image: {}", e),
             }

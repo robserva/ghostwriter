@@ -151,20 +151,28 @@ scp target/armv7-unknown-linux-gnueabihf/release/ghostwriter remarkable:
 ## Scratch
 
 ```
+
 # Record an evaluation on the device
+./ghostwriter --output-file tmp/result.out --model-output-file tmp/result.json --save-screenshot tmp/input.png --no-draw-progress --save-bitmap tmp/result.png claude-assist
 
 # On local, copy the evaluation to local and then put it into a folder
+export evaluation_name=tic_tac_toe_1
+rm tmp/*
 scp -r remarkable:tmp/ ./
-mkdir evaluations/tic_tac_toe_1
-mv tmp/* evaluations/tic_tac_toe_1
+mkdir -p evaluations/$evaluation_name
+mv tmp/* evaluations/$evaluation_name
 
 # Run an evaluation
-./target/release/ghostwriter --input-png evaluations/x_in_box/input.png --output-file tmp/result.out --model-output-file tmp/result.json --save-bitmap tmp/result.png --no-draw --no-draw-progress --no-loop claude-assist
+./target/release/ghostwriter --input-png evaluations/$evaluation_name/input.png --output-file tmp/result.out --model-output-file tmp/result.json --save-bitmap tmp/result.png --no-draw --no-draw-progress --no-loop claude-assist
 
 # Layer the input and output
-magick \( evaluations/x_in_box/input.png -colorspace RGB \) \( tmp/result.png -type truecolormatte -transparent white -fill red -colorize 100 \) -compose Over -composite tmp/merged-output.png
+magick \( evaluations/$evaluation_name/input.png -colorspace RGB \) \( tmp/result.png -type truecolormatte -transparent white -fill red -colorize 100 \) -compose Over -composite tmp/merged-output.png
 ```
 
 Resize from 1872x1404 to 1268x951 px (I think claude does it for us already)
 OR maybe 768x1024 is better. Same ratio, but "standard" XGA
+
+Now I've added opencv-rust as a dependency to pre-segment images. To get this in ubuntu I had to do `sudo apt install libopencv-dev libclang-dev clang`.
+
+comment on https://www.lukasmoro.com/paper
 

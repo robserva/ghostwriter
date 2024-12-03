@@ -16,7 +16,7 @@ pub fn svg_to_bitmap(svg_data: &str, width: u32, height: u32) -> Result<Vec<Vec<
         Ok(tree) => tree,
         Err(e) => {
             println!("Error parsing SVG: {}. Using fallback SVG.", e);
-            let fallback_svg = r#"<svg width='1404' height='1872' xmlns='http://www.w3.org/2000/svg'><text x='300' y='1285' font-family='Noto Sans' font-size='24'>ERROR!</text></svg>"#;
+            let fallback_svg = r#"<svg width='768' height='1024' xmlns='http://www.w3.org/2000/svg'><text x='100' y='900' font-family='Noto Sans' font-size='24'>ERROR!</text></svg>"#;
             Tree::from_str(fallback_svg, &opt)?
         }
     };

@@ -26,6 +26,9 @@ use crate::touch::Touch;
 mod util;
 use crate::util::{svg_to_bitmap, write_bitmap_to_file};
 
+mod segmenter;
+use crate::segmenter::analyze_image;
+
 const REMARKABLE_WIDTH: u32 = 768;
 const REMARKABLE_HEIGHT: u32 = 1024;
 
@@ -119,7 +122,7 @@ fn keyboard_test() -> Result<()> {
 fn ghostwriter(args: &Args) -> Result<()> {
     let mut keyboard = Keyboard::new(args.no_draw, args.no_draw_progress);
     let mut pen = Pen::new(args.no_draw);
-    let mut touch = Touch::new();
+    let mut touch = Touch::new(args.no_draw);
 
     // Default to regular text size
     keyboard.key_cmd_body()?;
@@ -147,12 +150,6 @@ fn ghostwriter(args: &Args) -> Result<()> {
 
         if args.no_submit {
             println!("Image not submitted to OpenAI due to --no-submit flag");
-            keyboard.progress_end()?;
-            return Ok(());
-        }
-
-        if args.no_draw {
-            println!("Skipping draw_text and draw_svg due to --no-draw flag");
             keyboard.progress_end()?;
             return Ok(());
         }
@@ -202,7 +199,7 @@ fn ghostwriter(args: &Args) -> Result<()> {
                         },
                         "svg": {
                             "type": "string",
-                            "description": "SVG data to be rendered. This is drawn on top of the input image, and should be the same size as the input image (1404x1872 px). The display can only show black and white. Try to place the output in an integrated position. Use the `Noto Sans` font-family when you are showing text. Do not use a style tag tag. Do not use any fill colors or gradients or transparency or shadows. Do include the xmlns in the main svg tag."
+                            "description": "SVG data to be rendered. This is drawn on top of the input image, and should be the same size as the input image (768x1024 px). The display can only show black and white. Try to place the output in an integrated position. Use the `Noto Sans` font-family when you are showing text. Do not use a style tag tag. Do not use any fill colors or gradients or transparency or shadows. Do include the xmlns in the main svg tag."
                         }
                     },
                     "required": ["input_description", "output_description", "svg"]
@@ -325,7 +322,8 @@ fn draw_svg(svg_data: &str, keyboard: &mut Keyboard, pen: &mut Pen, save_bitmap:
 fn claude_assist(args: &Args) -> Result<()> {
     let mut keyboard = Keyboard::new(args.no_draw, args.no_draw_progress);
     let mut pen = Pen::new(args.no_draw);
-    let mut touch = Touch::new();
+    let mut touch = Touch::new(args.no_draw);
+
 
     // Default to regular text size
     keyboard.key_cmd_body()?;
@@ -357,6 +355,12 @@ fn claude_assist(args: &Args) -> Result<()> {
             return Ok(());
         }
 
+        // Analyze the image to get bounding box descriptions
+        let segmentation_description = match analyze_image(&args.input_png.clone().unwrap_or("screenshot.png".to_string())) {
+            Ok(description) => description,
+            Err(e) => format!("Error analyzing image: {}", e),
+        };
+
         let api_key = std::env::var("ANTHROPIC_API_KEY")?;
         let tools = json!([
         {
@@ -382,32 +386,67 @@ fn claude_assist(args: &Args) -> Result<()> {
             }
         },
         {
-            "name": "draw_svg",
-            "description": "Draw an SVG to the screen using simulated pen input. The input_description and output_description are used to build a plan for the actual output.",
-            "input_schema": {
-                "type": "object",
-                "properties": {
-                    "input_description": {
-                        "type": "string",
-                        "description": "Description of what was detected in the input image. Include the exact pixel x, y, width, height bounding box coordinates of everything."
+          "name": "draw_svg",
+          "description": "Draw an SVG to the screen using simulated pen input. The input_description and output_description are used to build a plan for the actual output.",
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "input_description": {
+                "type": "string",
+                "description": "Description of what was detected in the input image. Include the exact pixel x, y, width, height bounding box coordinates of everything."
+              },
+              "input_features": {
+                "type": "array",
+                "description": "A list of exact bounding boxes for important features of the input",
+                "items": {
+                  "type": "object",
+                  "description": "A specific feature and bounding box",
+                  "properties": {
+                    "feature_description": {
+                      "type": "string",
+                      "description": "Description of the feature"
                     },
-                    "output_description": {
-                        "type": "string",
-                        "description": "Description of what will be drawn. Include the exact pixel x, y, width, height bounding box coordinates of what you want to draw."
+                    "top_left_x_px": {
+                      "type": "integer",
+                      "description": "The top-left x coordinate in px"
                     },
-                    "svg": {
-                        "type": "string",
-                        "description": "SVG data to be rendered. This is drawn on top of the input image, and should be the same size as the input image (1404x1872 px). The display can only show black and white. Try to place the output in an integrated position. Use the `Noto Sans` font-family when you are showing text. Do not use a style tag tag. Do not use any fill colors or gradients or transparency or shadows. Do include the xmlns in the main svg tag."
+                    "top_left_y_px": {
+                      "type": "integer",
+                      "description": "The top-left y coordinate in px"
+                    },
+                    "bottom_right_x_px": {
+                      "type": "integer",
+                      "description": "The bottom-right x coordinate in px"
+                    },
+                    "bottom_right_y_px": {
+                      "type": "integer",
+                      "description": "The bottom-right y coordinate in px"
                     }
-                },
-                "required": ["input_description", "output_description", "svg"]
-            }
+                  },
+                  "required": ["feature_description", "top_left_x_px", "top_left_y_px", "bottom_right_x_px", "bottom_right_y_px"]
+                }
+              },
+              "output_description": {
+                "type": "string",
+                "description": "Description of what will be drawn. Include the exact pixel x, y, width, height bounding box coordinates of what you want to draw."
+              },
+              "svg": {
+                "type": "string",
+                "description": "SVG data to be rendered. This is drawn on top of the input image, and should be the same size as the input image (768x1024 px). The display can only show black and white. Try to place the output in an integrated position. Use the `Noto Sans` font-family when you are showing text. Do not use a style tag tag. Do not use any fill colors or gradients or transparency or shadows. Do include the xmlns in the main svg tag."
+              }
+            },
+            "required": [
+              "input_description",
+              "input_features",
+              "output_description",
+              "svg"
+            ]
+          }
         }
         ]);
 
         let body = json!({
-            // "model": "args.model,
-            "model": "claude-3-5-sonnet-20241022",
+            "model": "claude-3-5-sonnet-latest",
             "max_tokens": 5000,
             "messages": [{
                 "role": "user",
@@ -415,6 +454,10 @@ fn claude_assist(args: &Args) -> Result<()> {
                     {
                         "type": "text",
                         "text": "You are a helpful assistant. You live inside of a remarkable2 notepad, which has a 768x1024 px sized screen which can only display grayscale. Your input is the current content of the screen, which may contain content written by the user or previously written by you (the assistant). Look at this content, interpret it, and respond to the content. The content will contain handwritten notes, diagrams, and maybe typewritten text. Respond by calling a tool. Call draw_text to output text which will be sent using simulated keyboard input. Call draw_svg to respond with an SVG drawing which will be drawn on top of the existing content. Try to place the output on the screen at coordinates that make sense. If you need to place text at a very specific location, you should output an SVG instead of keyboard text."
+                    },
+                    {
+                        "type": "text",
+                        "text": format!("Here are interesting regions based on an automatic segmentation algorithm. Use them to help identify the exact location of interesting features.\n\n{}", segmentation_description)
                     },
                     {
                         "type": "image",
@@ -448,7 +491,6 @@ fn claude_assist(args: &Args) -> Result<()> {
                 println!("Error: {}", code);
                 let json: serde_json::Value = response.into_json()?;
                 println!("Response: {}", json);
-                // return Err(Error::from(code));
                 return Err(anyhow::anyhow!("API ERROR"))
             }
             Err(_) => {
@@ -460,6 +502,11 @@ fn claude_assist(args: &Args) -> Result<()> {
 
         let json: serde_json::Value = response.into_json()?;
         println!("Response: {}", json);
+
+        if let Some(model_output_file) = &args.model_output_file {
+            std::fs::write(model_output_file, json.to_string())?;
+        }
+
         let tool_calls = &json["content"];
 
         if let Some(tool_call) = tool_calls.get(0) {
@@ -477,13 +524,6 @@ fn claude_assist(args: &Args) -> Result<()> {
                     if !args.no_draw {
                         draw_text(text, &mut keyboard)?;
                     }
-                    if let Some(model_output_file) = &args.model_output_file {
-                        let params = json!({
-                            "function": function_name,
-                            "arguments": arguments
-                        });
-                        std::fs::write(model_output_file, params.to_string())?;
-                    }
                 }
                 "draw_svg" => {
                     let svg_data = arguments["svg"].as_str().unwrap();
@@ -491,13 +531,6 @@ fn claude_assist(args: &Args) -> Result<()> {
                         std::fs::write(output_file, svg_data)?;
                     }
                     draw_svg(svg_data, &mut keyboard, &mut pen, args.save_bitmap.as_ref(), args.no_draw)?;
-                    if let Some(model_output_file) = &args.model_output_file {
-                        let params = json!({
-                            "function": function_name,
-                            "arguments": arguments
-                        });
-                        std::fs::write(model_output_file, params.to_string())?;
-                    }
                 }
                 _ => {
                     keyboard.progress_end()?;

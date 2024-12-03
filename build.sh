@@ -6,6 +6,9 @@ remarkable="${1:-remarkable}"
 if [ "$1" == "local" ]; then
     cargo build --release
 else
+    # export PKG_CONFIG_SYSROOT_DIR="<toolchain_install_path>/sysroots/cortexa7hf-neon-remarkable-linux-gnueabi"
+    # export PKG_CONFIG_PATH="<toolchain_install_path>/sysroots/cortexa7hf-neon-remarkable-linux-gnueabi/usr/lib/pkgconfig"
+    # export PKG_CONFIG_ALLOW_CROSS=1
     cross build --release --target=armv7-unknown-linux-gnueabihf && scp target/armv7-unknown-linux-gnueabihf/release/ghostwriter root@$remarkable:
 fi
 

@@ -81,7 +81,7 @@ Draw some stuff on your screen, and then trigger the assistant by *touching/tapp
   * With a LOT of help from claude/copilot I have added a basic image segmenting step
   * This does some basic segmenting and then gives the segment coordinates to the VLM to consider
   * Only hooked it up with claude for now, need to merge those two models
-  * ... It helps with putting X in boxes a LOT!!<br/><img src="docs/x-in-box-miss.png" width=200 border=1><img src="docs/x-in-box-hit.png" width=200 border=1>
+  * ... It helps with putting X in boxes a LOT!!<br/><img src="docs/x-in-box-miss.png" width=200 border=1> <img src="docs/x-in-box-hit.png" width=200 border=1>
   * Need to get some automation around the evaluations
   * The segmenter has to be explicitly enabled with `--apply-segmentation` and it assumes that you have either `--input-png` or `--save-screenshot` because it (dumbly) re-parses the png file
 

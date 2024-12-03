@@ -12,6 +12,7 @@ You need an `OPENAI_API_KEY` environment variable set. I did this by adding it t
 ```sh
 # In the remarkable's ~/.bashrc or before you run ghostwriter
 export OPENAI_API_KEY=your-key-here
+export ANTHROPIC_API_KEY=your-key-here
 ```
 
 Install by getting the binary to your remarkable. On your not-remarkable:
@@ -157,7 +158,7 @@ cross build --release --target=armv7-unknown-linux-gnueabihf
 scp target/armv7-unknown-linux-gnueabihf/release/ghostwriter remarkable:
 ```
 
-## Scratch
+## Scratch Notes
 
 ```
 
@@ -177,11 +178,4 @@ mv tmp/* evaluations/$evaluation_name
 # Layer the input and output
 magick \( evaluations/$evaluation_name/input.png -colorspace RGB \) \( tmp/result.png -type truecolormatte -transparent white -fill red -colorize 100 \) -compose Over -composite tmp/merged-output.png
 ```
-
-Resize from 1872x1404 to 1268x951 px (I think claude does it for us already)
-OR maybe 768x1024 is better. Same ratio, but "standard" XGA
-
-Now I've added opencv-rust as a dependency to pre-segment images. To get this in ubuntu I had to do `sudo apt install libopencv-dev libclang-dev clang`.
-
-comment on https://www.lukasmoro.com/paper
 

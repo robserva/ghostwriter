@@ -84,6 +84,7 @@ Draw some stuff on your screen, and then trigger the assistant by *touching/tapp
   * ... It helps with putting X in boxes a LOT!!<br/><img src="docs/x-in-box-miss.png" width=200 border=1> <img src="docs/x-in-box-hit.png" width=200 border=1>
   * Need to get some automation around the evaluations
   * The segmenter has to be explicitly enabled with `--apply-segmentation` and it assumes that you have either `--input-png` or `--save-screenshot` because it (dumbly) re-parses the png file
+  * OMG this is the first time that the math prompt got even close to putting the answer where I want! It has been getting it right, but usually types the `10` with the keyboard or places it somewhere wrong. This time it actually put it where it should be!<br/><img src="docs/math-align-1.png" width=200 border=1>
 
 
 ## Ideas

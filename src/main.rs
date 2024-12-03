@@ -276,7 +276,13 @@ fn ghostwriter(args: &Args) -> Result<()> {
                     if let Some(output_file) = &args.output_file {
                         std::fs::write(output_file, svg_data)?;
                     }
-                    draw_svg(svg_data, &mut keyboard, &mut pen, args.save_bitmap.as_ref(), args.no_draw)?;
+                    draw_svg(
+                        svg_data,
+                        &mut keyboard,
+                        &mut pen,
+                        args.save_bitmap.as_ref(),
+                        args.no_draw,
+                    )?;
                     if let Some(model_output_file) = &args.model_output_file {
                         let params = json!({
                             "function": function_name,
@@ -287,12 +293,12 @@ fn ghostwriter(args: &Args) -> Result<()> {
                 }
                 _ => {
                     keyboard.progress_end()?;
-                    return Err(anyhow::anyhow!("Unknown function called"))
+                    return Err(anyhow::anyhow!("Unknown function called"));
                 }
             }
         } else {
             keyboard.progress_end()?;
-            return Err(anyhow::anyhow!("No tool call found in response"))
+            return Err(anyhow::anyhow!("No tool call found in response"));
         }
 
         if args.no_loop {
@@ -310,7 +316,13 @@ fn draw_text(text: &str, keyboard: &mut Keyboard) -> Result<()> {
     Ok(())
 }
 
-fn draw_svg(svg_data: &str, keyboard: &mut Keyboard, pen: &mut Pen, save_bitmap: Option<&String>, no_draw: bool) -> Result<()> {
+fn draw_svg(
+    svg_data: &str,
+    keyboard: &mut Keyboard,
+    pen: &mut Pen,
+    save_bitmap: Option<&String>,
+    no_draw: bool,
+) -> Result<()> {
     keyboard.progress()?;
     let bitmap = svg_to_bitmap(svg_data, REMARKABLE_WIDTH, REMARKABLE_HEIGHT)?;
     if let Some(save_bitmap) = save_bitmap {
@@ -323,12 +335,10 @@ fn draw_svg(svg_data: &str, keyboard: &mut Keyboard, pen: &mut Pen, save_bitmap:
     Ok(())
 }
 
-
 fn claude_assist(args: &Args) -> Result<()> {
     let mut keyboard = Keyboard::new(args.no_draw, args.no_draw_progress);
     let mut pen = Pen::new(args.no_draw);
     let mut touch = Touch::new(args.no_draw);
-
 
     // Default to regular text size
     keyboard.key_cmd_body()?;
@@ -362,7 +372,10 @@ fn claude_assist(args: &Args) -> Result<()> {
 
         // Analyze the image to get bounding box descriptions
         let segmentation_description = if args.apply_segmentation {
-            let input_filename = args.input_png.clone().unwrap_or(args.save_screenshot.clone().unwrap());
+            let input_filename = args
+                .input_png
+                .clone()
+                .unwrap_or(args.save_screenshot.clone().unwrap());
             match analyze_image(input_filename.as_str()) {
                 Ok(description) => description,
                 Err(e) => format!("Error analyzing image: {}", e),
@@ -493,7 +506,6 @@ fn claude_assist(args: &Args) -> Result<()> {
 
         keyboard.progress()?;
 
-
         let raw_response = ureq::post("https://api.anthropic.com/v1/messages")
             .set("x-api-key", api_key.as_str())
             .set("anthropic-version", "2023-06-01")
@@ -501,16 +513,14 @@ fn claude_assist(args: &Args) -> Result<()> {
             .send_json(&body);
 
         let response = match raw_response {
-            Ok(response) => { response }
+            Ok(response) => response,
             Err(Error::Status(code, response)) => {
                 println!("Error: {}", code);
                 let json: serde_json::Value = response.into_json()?;
                 println!("Response: {}", json);
-                return Err(anyhow::anyhow!("API ERROR"))
+                return Err(anyhow::anyhow!("API ERROR"));
             }
-            Err(_) => {
-                return Err(anyhow::anyhow!("OTHER API ERROR"))
-            }
+            Err(_) => return Err(anyhow::anyhow!("OTHER API ERROR")),
         };
 
         keyboard.progress()?;
@@ -545,16 +555,22 @@ fn claude_assist(args: &Args) -> Result<()> {
                     if let Some(output_file) = &args.output_file {
                         std::fs::write(output_file, svg_data)?;
                     }
-                    draw_svg(svg_data, &mut keyboard, &mut pen, args.save_bitmap.as_ref(), args.no_draw)?;
+                    draw_svg(
+                        svg_data,
+                        &mut keyboard,
+                        &mut pen,
+                        args.save_bitmap.as_ref(),
+                        args.no_draw,
+                    )?;
                 }
                 _ => {
                     keyboard.progress_end()?;
-                    return Err(anyhow::anyhow!("Unknown function called"))
+                    return Err(anyhow::anyhow!("Unknown function called"));
                 }
             }
         } else {
             keyboard.progress_end()?;
-            return Err(anyhow::anyhow!("No tool call found in response"))
+            return Err(anyhow::anyhow!("No tool call found in response"));
         }
 
         if args.no_loop {

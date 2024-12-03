@@ -7,7 +7,6 @@ pub struct Touch {
 
 impl Touch {
     pub fn new(no_touch: bool) -> Self {
-
         let device = if no_touch {
             None
         } else {

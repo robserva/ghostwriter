@@ -90,7 +90,6 @@ impl Pen {
         Ok(())
     }
 
-
     // fn draw_dot(device: &mut Device, (x, y): (i32, i32)) -> Result<()> {
     //     // println!("Drawing at ({}, {})", x, y);
     //     goto_xy(device, (x, y))?;

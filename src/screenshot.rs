@@ -88,7 +88,11 @@ impl Screenshot {
 
         // Resize the PNG to OUTPUT_WIDTH x OUTPUT_HEIGHT
         let img = image::load_from_memory(&png_data)?;
-        let resized_img = img.resize(OUTPUT_WIDTH, OUTPUT_HEIGHT, image::imageops::FilterType::Lanczos3);
+        let resized_img = img.resize(
+            OUTPUT_WIDTH,
+            OUTPUT_HEIGHT,
+            image::imageops::FilterType::Lanczos3,
+        );
 
         // Encode the resized image back to PNG
         let mut resized_png_data = Vec::new();

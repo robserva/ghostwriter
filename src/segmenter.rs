@@ -1,9 +1,6 @@
 use image::{GrayImage, Rgb, RgbImage};
-use imageproc::contours::{find_contours, Contour};
-use imageproc::{
-    point::Point,
-    geometry::{contour_area, min_area_rect},
-};
+use imageproc::contours::find_contours;
+use imageproc::geometry::{contour_area, min_area_rect};
 use serde::Serialize;
 
 #[derive(Debug, Serialize)]

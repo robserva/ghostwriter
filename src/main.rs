@@ -5,6 +5,7 @@ use serde_json::json;
 
 use clap::{Parser, Subcommand};
 
+use base64::prelude::*;
 
 use std::thread::sleep;
 use std::time::Duration;
@@ -142,7 +143,7 @@ fn ghostwriter(args: &Args) -> Result<()> {
         keyboard.progress()?;
 
         let base64_image = if let Some(input_png) = &args.input_png {
-            std::fs::read(input_png).map(base64::encode)?
+            BASE64_STANDARD.encode(std::fs::read(input_png)?)
         } else {
             let screenshot = Screenshot::new()?;
             if let Some(save_screenshot) = &args.save_screenshot {
@@ -343,7 +344,7 @@ fn claude_assist(args: &Args) -> Result<()> {
         keyboard.progress()?;
 
         let base64_image = if let Some(input_png) = &args.input_png {
-            std::fs::read(input_png).map(base64::encode)?
+            BASE64_STANDARD.encode(std::fs::read(input_png)?)
         } else {
             let screenshot = Screenshot::new()?;
             if let Some(save_screenshot) = &args.save_screenshot {

@@ -77,6 +77,14 @@ Draw some stuff on your screen, and then trigger the assistant by *touching/tapp
   * And then if I can get enough examples maye I'll have to make an AI judge to scale :)
   * To help with that ... on idea is to make overlay the original input with the output but make the output a different color to make it differentiable by the judge
   * So far this technique is looking good for SVG output, but it'd be nice to somehow render keyboard output locally too. That is tricker since the keyboard input rendering is done by the reMarkable app
+* **2024-12-02** - Initial segmenter
+  * With a LOT of help from claude/copilot I have added a basic image segmenting step
+  * This does some basic segmenting and then gives the segment coordinates to the VLM to consider
+  * Only hooked it up with claude for now, need to merge those two models
+  * ... It helps with putting X in boxes a LOT!!<br/><img src="docs/x-in-box-miss.png" width=200 border=1><img src="docs/x-in-box-hit.png" width=200 border=1>
+  * Need to get some automation around the evaluations
+  * The segmenter has to be explicitly enabled with `--apply-segmentation` and it assumes that you have either `--input-png` or `--save-screenshot` because it (dumbly) re-parses the png file
+
 
 ## Ideas
 * [DONE] Matt showed me his iOS super calc that just came out, take inspiration from that!

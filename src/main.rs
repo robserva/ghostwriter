@@ -90,7 +90,6 @@ struct Args {
 
 #[derive(Subcommand)]
 enum Command {
-    KeyboardTest,
     TextAssist,
     ClaudeAssist,
 }
@@ -100,28 +99,9 @@ fn main() -> Result<()> {
     let args = Args::parse();
 
     match &args.command {
-        Some(Command::KeyboardTest) => keyboard_test(),
         Some(Command::ClaudeAssist) => claude_assist(&args),
         Some(Command::TextAssist) | None => ghostwriter(&args),
     }
-}
-
-fn keyboard_test() -> Result<()> {
-    let mut keyboard = Keyboard::new(false, false);
-    sleep(Duration::from_secs(1)); // Wait for device to get warmed up
-                                   // let erase = "\x08".repeat(100);
-                                   // let input = erase.as_str();
-                                   // string_to_keypresses(&mut device, input)?;
-                                   // string_to_keypresses(&mut device, "\x1b")?;
-                                   // let input2 = "Hello, World! 123 @#$hidden\x08\x08\x08\n";
-                                   // string_to_keypresses(&mut device, input2)?;
-                                   // key_down(&mut device, Key::KEY_LEFTCTRL);
-                                   // sleep(Duration::from_secs(10));
-                                   // string_to_keypresses(&mut device, "4")?;
-                                   // key_up(&mut device, Key::KEY_LEFTCTRL);
-    keyboard.key_cmd_body()?;
-    keyboard.string_to_keypresses("hmmm\n")?;
-    Ok(())
 }
 
 fn ghostwriter(args: &Args) -> Result<()> {

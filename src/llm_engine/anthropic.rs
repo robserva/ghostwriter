@@ -1,6 +1,7 @@
 use anyhow::Result;
 use serde_json::Value as json;
 use serde_json::json;
+use super::LLMEngine;
 // use ureq::Error;
 
 pub struct Tool {
@@ -17,7 +18,23 @@ pub struct Anthropic {
 }
 
 impl Anthropic {
-    pub fn new(model: String) -> Self {
+
+    pub fn add_content(&mut self, content: json) {
+        self.content.push(content);
+    }
+
+    fn anthropic_tool_definition(tool: &Tool) -> json {
+        json!({
+            "name": tool.definition["name"],
+            "description": tool.definition["description"],
+            "input_schema": tool.definition["parameters"],
+        })
+    }
+
+}
+
+impl LLMEngine for Anthropic {
+    fn new(model: String) -> Self {
         let api_key = std::env::var("ANTHROPIC_API_KEY").unwrap();
         Self {
             model,
@@ -27,7 +44,7 @@ impl Anthropic {
         }
     }
 
-    pub fn register_tool(&mut self, name: &str, definition: json, callback: Box<dyn FnMut(json)>) {
+    fn register_tool(&mut self, name: &str, definition: json, callback: Box<dyn FnMut(json)>) {
         self.tools.push(Tool {
             name: name.to_string(),
             definition,
@@ -35,18 +52,14 @@ impl Anthropic {
         });
     }
 
-    pub fn add_content(&mut self, content: json) {
-        self.content.push(content);
-    }
-
-    pub fn add_text_content(&mut self, text: &str) {
+    fn add_text_content(&mut self, text: &str) {
         self.add_content(json!({
             "type": "text",
             "text": text,
         }));
     }
 
-    pub fn add_image_content(&mut self, base64_image: &str) {
+    fn add_image_content(&mut self, base64_image: &str) {
         self.add_content(json!({
             "type": "image",
             "source": {
@@ -59,22 +72,15 @@ impl Anthropic {
 
 
 
-    pub fn clear_content(&mut self) {
+    fn clear_content(&mut self) {
         self.content.clear();
     }
 
-    fn anthropic_tool_definition(tool: &Tool) -> json {
-        json!({
-            "name": tool.definition["name"],
-            "description": tool.definition["description"],
-            "input_schema": tool.definition["parameters"],
-        })
-    }
 
-    pub fn execute(&mut self) -> Result<()> {
+    fn execute(&mut self) -> Result<()> {
 
         let body = json!({
-            "model": "claude-3-5-sonnet-latest",
+            "model": self.model,
             "max_tokens": 5000,
             "messages": [{
                 "role": "user",

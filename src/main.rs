@@ -21,7 +21,7 @@ use ghostwriter::{
     touch::Touch,
     util::{svg_to_bitmap, write_bitmap_to_file},
     segmenter::analyze_image,
-    engine::anthropic::Anthropic,
+    llm_engine::{LLMEngine, anthropic::Anthropic, openai::OpenAI},
 };
 
 const REMARKABLE_WIDTH: u32 = 768;
@@ -134,9 +134,10 @@ fn ghostwriter(args: &Args) -> Result<()> {
     let pen = Arc::new(Mutex::new(Pen::new(args.no_draw)));
     let mut touch = Touch::new(args.no_draw);
 
-    let model = "claude-3-5-sonnet-latest";
-
-    let mut engine = Anthropic::new(model.to_string());
+    let mut engine: Box<dyn LLMEngine> = match args.engine.as_str() {
+        "openai" => Box::new(OpenAI::new(args.model.clone())),
+        _ => Box::new(Anthropic::new(args.model.clone())),
+    };
 
     let output_file = args.output_file.clone();
     let no_draw = args.no_draw;

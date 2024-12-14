@@ -1,4 +1,4 @@
-pub mod engine;
+pub mod llm_engine;
 pub mod keyboard;
 pub mod screenshot;
 pub mod pen;

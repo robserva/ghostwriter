@@ -1,7 +1,7 @@
-use anyhow::Result;
-use serde_json::Value as json;
-use serde_json::json;
 use super::LLMEngine;
+use anyhow::Result;
+use serde_json::json;
+use serde_json::Value as json;
 // use ureq::Error;
 
 pub struct Tool {
@@ -18,7 +18,6 @@ pub struct Anthropic {
 }
 
 impl Anthropic {
-
     pub fn add_content(&mut self, content: json) {
         self.content.push(content);
     }
@@ -30,7 +29,6 @@ impl Anthropic {
             "input_schema": tool.definition["parameters"],
         })
     }
-
 }
 
 impl LLMEngine for Anthropic {
@@ -70,15 +68,11 @@ impl LLMEngine for Anthropic {
         }));
     }
 
-
-
     fn clear_content(&mut self) {
         self.content.clear();
     }
 
-
     fn execute(&mut self) -> Result<()> {
-
         let body = json!({
             "model": self.model,
             "max_tokens": 5000,
@@ -96,13 +90,12 @@ impl LLMEngine for Anthropic {
         // print body for debugging
         println!("Request: {}", body);
 
-
-           let response = ureq::post("https://api.anthropic.com/v1/messages")
-                    .set("x-api-key", self.api_key.as_str())
-                    .set("anthropic-version", "2023-06-01")
-                      .set("Content-Type", "application/json")
-                    .send_json(&body)
-                    .unwrap();
+        let response = ureq::post("https://api.anthropic.com/v1/messages")
+            .set("x-api-key", self.api_key.as_str())
+            .set("anthropic-version", "2023-06-01")
+            .set("Content-Type", "application/json")
+            .send_json(&body)
+            .unwrap();
 
         // let response = match raw_response {
         //     Ok(response) => response,
@@ -123,20 +116,28 @@ impl LLMEngine for Anthropic {
             let function_name = tool_call["name"].as_str().unwrap();
             let function_input = &tool_call["input"];
             // let function_input = serde_json::from_str::<json>(raw_function_input).unwrap();
-            let tool = self.tools.iter_mut().find(|tool| tool.name == function_name);
+            let tool = self
+                .tools
+                .iter_mut()
+                .find(|tool| tool.name == function_name);
             if let Some(tool) = tool {
                 if let Some(callback) = &mut tool.callback {
                     callback(function_input.clone());
                     Ok(())
                 } else {
-                    Err(anyhow::anyhow!("No callback registered for tool {}", function_name))
+                    Err(anyhow::anyhow!(
+                        "No callback registered for tool {}",
+                        function_name
+                    ))
                 }
             } else {
-                Err(anyhow::anyhow!("No tool registered with name {}", function_name))
+                Err(anyhow::anyhow!(
+                    "No tool registered with name {}",
+                    function_name
+                ))
             }
         } else {
             Err(anyhow::anyhow!("No tool calls found in response"))
         }
     }
 }
-

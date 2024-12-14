@@ -7,17 +7,16 @@ use clap::{Parser, Subcommand};
 
 use base64::prelude::*;
 
-
 use dotenv::dotenv;
 
 use ghostwriter::{
     keyboard::Keyboard,
-    screenshot::Screenshot,
+    llm_engine::{anthropic::Anthropic, openai::OpenAI, LLMEngine},
     pen::Pen,
+    screenshot::Screenshot,
+    segmenter::analyze_image,
     touch::Touch,
     util::{svg_to_bitmap, write_bitmap_to_file},
-    segmenter::analyze_image,
-    llm_engine::{LLMEngine, anthropic::Anthropic, openai::OpenAI},
 };
 
 const REMARKABLE_WIDTH: u32 = 768;
@@ -96,7 +95,6 @@ fn main() -> Result<()> {
     }
 }
 
-
 fn draw_text(text: &str, keyboard: &mut Keyboard) -> Result<()> {
     keyboard.progress()?;
     keyboard.progress_end()?;
@@ -126,7 +124,10 @@ fn draw_svg(
 }
 
 fn ghostwriter(args: &Args) -> Result<()> {
-    let keyboard = Arc::new(Mutex::new(Keyboard::new(args.no_draw, args.no_draw_progress)));
+    let keyboard = Arc::new(Mutex::new(Keyboard::new(
+        args.no_draw,
+        args.no_draw_progress,
+    )));
     let pen = Arc::new(Mutex::new(Pen::new(args.no_draw)));
     let mut touch = Touch::new(args.no_draw);
 
@@ -174,7 +175,8 @@ fn ghostwriter(args: &Args) -> Result<()> {
                 &mut pen,
                 save_bitmap.as_ref(),
                 no_draw,
-            ).unwrap();
+            )
+            .unwrap();
         }),
     );
 

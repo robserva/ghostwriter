@@ -1,16 +1,12 @@
 use anyhow::Result;
-use ureq::Error;
 use std::sync::{Arc, Mutex};
 
-use serde_json::json;
 use serde_json::Value as json;
 
 use clap::{Parser, Subcommand};
 
 use base64::prelude::*;
 
-use std::thread::sleep;
-use std::time::Duration;
 
 use dotenv::dotenv;
 

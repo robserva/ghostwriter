@@ -16,7 +16,6 @@ clap = { version = "4.0", features = ["derive"] }
 evdev = "0.12.0"
 resvg = "0.44.0"
 dotenv = "0.15"
-# opencv = "0.93.4"
 imageproc = "0.25.0"
 
 [lib]

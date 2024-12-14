@@ -2,7 +2,6 @@ use super::LLMEngine;
 use anyhow::Result;
 use serde_json::json;
 use serde_json::Value as json;
-// use ureq::Error;
 
 pub struct Tool {
     name: String,
@@ -97,25 +96,12 @@ impl LLMEngine for Anthropic {
             .send_json(&body)
             .unwrap();
 
-        // let response = match raw_response {
-        //     Ok(response) => response,
-        //     Err(Error::Status(code, response)) => {
-        //         println!("Error: {}", code);
-        //         let json: serde_json = response.into_json()?;
-        //         println!("Response: {}", json);
-        //         return Err(anyhow::anyhow!("API ERROR"));
-        //     }
-        //     Err(_) => return Err(anyhow::anyhow!("OTHER API ERROR")),
-        // };
-
         let json: json = response.into_json().unwrap();
         println!("Response: {}", json);
         let tool_calls = &json["content"];
-        // let tool_calls = &json["choices"][0]["message"]["tool_calls"];
         if let Some(tool_call) = tool_calls.get(0) {
             let function_name = tool_call["name"].as_str().unwrap();
             let function_input = &tool_call["input"];
-            // let function_input = serde_json::from_str::<json>(raw_function_input).unwrap();
             let tool = self
                 .tools
                 .iter_mut()

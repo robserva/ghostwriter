@@ -2,7 +2,6 @@ use super::LLMEngine;
 use anyhow::Result;
 use serde_json::json;
 use serde_json::Value as json;
-// use ureq::Error;
 
 pub struct Tool {
     name: String,

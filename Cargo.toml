@@ -19,3 +19,10 @@ dotenv = "0.15"
 # opencv = "0.93.4"
 imageproc = "0.25.0"
 
+[lib]
+name = "ghostwriter"
+path = "src/lib.rs"
+
+[[bin]]
+name = "ghostwriter"
+path = "src/main.rs"

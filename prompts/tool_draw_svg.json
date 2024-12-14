@@ -1,7 +1,8 @@
 {
   "name": "draw_svg",
   "description": "Draw an SVG to the screen using simulated pen input. The input_description and output_description are used to build a plan for the actual output.",
-  "input_schema": {
+  "internal_command": "draw_svg",
+  "parameters": {
     "type": "object",
     "properties": {
       "input_description": {

@@ -1,7 +1,8 @@
 {
   "name": "draw_text",
   "description": "Draw text to the screen using simulated keyboard input. The input_description and output_description are used to build a plan for the actual output.",
-  "input_schema": {
+  "internal_command": "draw_text",
+  "parameters": {
     "type": "object",
     "properties": {
       "input_description": {

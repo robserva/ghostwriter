@@ -39,8 +39,36 @@ impl Anthropic {
         self.content.push(content);
     }
 
+    pub fn add_text_content(&mut self, text: &str) {
+        self.add_content(json!({
+            "type": "text",
+            "text": text,
+        }));
+    }
+
+    pub fn add_image_content(&mut self, base64_image: &str) {
+        self.add_content(json!({
+            "type": "image",
+            "source": {
+                "type": "base64",
+                "media_type": "image/png",
+                "data": base64_image
+            }
+        }));
+    }
+
+
+
     pub fn clear_content(&mut self) {
         self.content.clear();
+    }
+
+    fn anthropic_tool_definition(tool: &Tool) -> json {
+        json!({
+            "name": tool.definition["name"],
+            "description": tool.definition["description"],
+            "input_schema": tool.definition["parameters"],
+        })
     }
 
     pub fn execute(&mut self) -> Result<()> {
@@ -52,7 +80,7 @@ impl Anthropic {
                 "role": "user",
                 "content": self.content
             }],
-            "tools": self.tools.iter().map(|tool| tool.definition.clone()).collect::<Vec<_>>(),
+            "tools": self.tools.iter().map(|tool| Self::anthropic_tool_definition(tool)).collect::<Vec<_>>(),
             "tool_choice": {
                 "type": "any",
                 "disable_parallel_tool_use": true

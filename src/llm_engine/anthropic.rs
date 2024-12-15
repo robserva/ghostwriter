@@ -3,6 +3,8 @@ use anyhow::Result;
 use serde_json::json;
 use serde_json::Value as json;
 
+use ureq::Error;
+
 pub struct Tool {
     name: String,
     definition: json,
@@ -89,12 +91,22 @@ impl LLMEngine for Anthropic {
         // print body for debugging
         println!("Request: {}", body);
 
-        let response = ureq::post("https://api.anthropic.com/v1/messages")
+        let raw_response = ureq::post("https://api.anthropic.com/v1/messages")
             .set("x-api-key", self.api_key.as_str())
             .set("anthropic-version", "2023-06-01")
             .set("Content-Type", "application/json")
-            .send_json(&body)
-            .unwrap();
+            .send_json(&body);
+
+        let response = match raw_response {
+            Ok(response) => response,
+            Err(Error::Status(code, response)) => {
+                println!("Error: {}", code);
+                let json: json = response.into_json()?;
+                println!("Response: {}", json);
+                return Err(anyhow::anyhow!("API ERROR"));
+            }
+            Err(_) => return Err(anyhow::anyhow!("OTHER API ERROR")),
+        };
 
         let json: json = response.into_json().unwrap();
         println!("Response: {}", json);

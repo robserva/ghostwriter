@@ -3,6 +3,8 @@ use anyhow::Result;
 use serde_json::json;
 use serde_json::Value as json;
 
+use ureq::Error;
+
 pub struct Tool {
     name: String,
     definition: json,
@@ -87,10 +89,21 @@ impl LLMEngine for OpenAI {
         // print body for debugging
         println!("Request: {}", body);
 
-        let response = ureq::post("https://api.openai.com/v1/chat/completions")
+        let raw_response = ureq::post("https://api.openai.com/v1/chat/completions")
             .set("Authorization", &format!("Bearer {}", self.api_key))
             .set("Content-Type", "application/json")
-            .send_json(&body)?;
+            .send_json(&body);
+
+        let response = match raw_response {
+            Ok(response) => response,
+            Err(Error::Status(code, response)) => {
+                println!("Error: {}", code);
+                let json: json = response.into_json()?;
+                println!("Response: {}", json);
+                return Err(anyhow::anyhow!("API ERROR"));
+            }
+            Err(_) => return Err(anyhow::anyhow!("OTHER API ERROR")),
+        };
 
         let json: json = response.into_json().unwrap();
         println!("Response: {}", json);

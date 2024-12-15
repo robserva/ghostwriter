@@ -9,6 +9,8 @@ use base64::prelude::*;
 
 use dotenv::dotenv;
 
+use rust_embed::Embed;
+
 use ghostwriter::{
     keyboard::Keyboard,
     llm_engine::{anthropic::Anthropic, openai::OpenAI, LLMEngine},
@@ -22,6 +24,10 @@ use ghostwriter::{
 const REMARKABLE_WIDTH: u32 = 768;
 const REMARKABLE_HEIGHT: u32 = 1024;
 
+#[derive(Embed)]
+#[folder = "prompts/"]
+struct Asset;
+
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Args {
@@ -34,7 +40,7 @@ struct Args {
     model: String,
 
     /// Sets the prompt to use
-    #[arg(long, default_value = "default")]
+    #[arg(long, default_value = "general")]
     prompt: String,
 
     /// Do not actually submit to the model, for testing
@@ -123,6 +129,19 @@ fn draw_svg(
     Ok(())
 }
 
+fn load_config(filename: &str) -> String {
+    std::fs::read_to_string(format!("prompts/{}.json", filename)).unwrap_or(
+        std::str::from_utf8(
+            Asset::get(format!("{}.json", filename).as_str())
+                .unwrap()
+                .data
+                .as_ref(),
+        )
+        .unwrap()
+        .to_string(),
+    )
+}
+
 fn ghostwriter(args: &Args) -> Result<()> {
     let keyboard = Arc::new(Mutex::new(Keyboard::new(
         args.no_draw,
@@ -140,7 +159,7 @@ fn ghostwriter(args: &Args) -> Result<()> {
     let no_draw = args.no_draw;
     let keyboard_clone = Arc::clone(&keyboard);
 
-    let tool_config_draw_text = std::fs::read_to_string("prompts/tool_draw_text.json").unwrap_or(include_str!("../prompts/tool_draw_text.json").to_string());
+    let tool_config_draw_text = load_config("tool_draw_text");
 
     engine.register_tool(
         "draw_text",
@@ -162,7 +181,8 @@ fn ghostwriter(args: &Args) -> Result<()> {
     let no_draw = args.no_draw;
     let keyboard_clone = Arc::clone(&keyboard);
     let pen_clone = Arc::clone(&pen);
-    let tool_config_draw_svg = std::fs::read_to_string("prompts/tool_draw_svg.json").unwrap_or(include_str!("../prompts/tool_draw_svg.json").to_string());
+
+    let tool_config_draw_svg = load_config("tool_draw_svg");
     engine.register_tool(
         "draw_svg",
         serde_json::from_str::<serde_json::Value>(tool_config_draw_svg.as_str())?,
@@ -225,8 +245,9 @@ fn ghostwriter(args: &Args) -> Result<()> {
         };
         println!("Segmentation description: {}", segmentation_description);
 
-        let prompt_general_raw = std::fs::read_to_string("prompts/general.json").unwrap_or(include_str!("../prompts/general.json").to_string());
-        let prompt_general_json = serde_json::from_str::<serde_json::Value>(prompt_general_raw.as_str())?;
+        let prompt_general_raw = load_config("general");
+        let prompt_general_json =
+            serde_json::from_str::<serde_json::Value>(prompt_general_raw.as_str())?;
         let prompt = prompt_general_json["prompt"].as_str().unwrap();
 
         engine.clear_content();

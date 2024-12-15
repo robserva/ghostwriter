@@ -139,9 +139,12 @@ fn ghostwriter(args: &Args) -> Result<()> {
     let output_file = args.output_file.clone();
     let no_draw = args.no_draw;
     let keyboard_clone = Arc::clone(&keyboard);
+
+    let tool_config_draw_text = std::fs::read_to_string("prompts/tool_draw_text.json").unwrap_or(include_str!("../prompts/tool_draw_text.json").to_string());
+
     engine.register_tool(
         "draw_text",
-        serde_json::from_str::<serde_json::Value>(include_str!("../prompts/tool_draw_text.json"))?,
+        serde_json::from_str::<serde_json::Value>(tool_config_draw_text.as_str())?,
         Box::new(move |arguments: json| {
             let text = arguments["text"].as_str().unwrap();
             if let Some(output_file) = &output_file {
@@ -159,9 +162,10 @@ fn ghostwriter(args: &Args) -> Result<()> {
     let no_draw = args.no_draw;
     let keyboard_clone = Arc::clone(&keyboard);
     let pen_clone = Arc::clone(&pen);
+    let tool_config_draw_svg = std::fs::read_to_string("prompts/tool_draw_svg.json").unwrap_or(include_str!("../prompts/tool_draw_svg.json").to_string());
     engine.register_tool(
         "draw_svg",
-        serde_json::from_str::<serde_json::Value>(include_str!("../prompts/tool_draw_svg.json"))?,
+        serde_json::from_str::<serde_json::Value>(tool_config_draw_svg.as_str())?,
         Box::new(move |arguments: json| {
             let svg_data = arguments["svg"].as_str().unwrap();
             if let Some(output_file) = &output_file {
@@ -221,10 +225,12 @@ fn ghostwriter(args: &Args) -> Result<()> {
         };
         println!("Segmentation description: {}", segmentation_description);
 
+        let prompt_general_raw = std::fs::read_to_string("prompts/general.json").unwrap_or(include_str!("../prompts/general.json").to_string());
+        let prompt_general_json = serde_json::from_str::<serde_json::Value>(prompt_general_raw.as_str())?;
+        let prompt = prompt_general_json["prompt"].as_str().unwrap();
+
         engine.clear_content();
-        engine.add_text_content(
-            "You are a helpful assistant. You live inside of a remarkable2 notepad, which has a 768x1024 px sized screen which can only display grayscale. Your input is the current content of the screen, which may contain content written by the user or previously written by you (the assistant). Look at this content, interpret it, and respond to the content. The content will contain handwritten notes, diagrams, and maybe typewritten text. Respond by calling a tool. Call draw_text to output text which will be sent using simulated keyboard input. Call draw_svg to respond with an SVG drawing which will be drawn on top of the existing content. Try to place the output on the screen at coordinates that make sense. If you need to place text at a very specific location, you should output an SVG instead of keyboard text."
-        );
+        engine.add_text_content(prompt);
 
         if args.apply_segmentation {
             engine.add_text_content(

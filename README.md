@@ -86,7 +86,12 @@ Draw some stuff on your screen, and then trigger the assistant by *touching/tapp
   * Need to get some automation around the evaluations
   * The segmenter has to be explicitly enabled with `--apply-segmentation` and it assumes that you have either `--input-png` or `--save-screenshot` because it (dumbly) re-parses the png file
   * OMG this is the first time that the math prompt got even close to putting the answer where I want! It has been getting it right, but usually types the `10` with the keyboard or places it somewhere wrong. This time it actually put it where it should be!<br/><img src="docs/math-align-1.png" width=200 border=1>
-
+* **2024-12-15** - Engine Unification
+  * With the usual help from claude/copilot and some tutorials I extracted out some polymorphic engine layer for OpenAI and Anthropic backends
+  * So now you can pass in engine and model
+  * A lot of other codebases take a model and then do a map; maybe I'll do that based on the model name or something
+  * I also got the prompt and tool definitions externalized (into a `prompts/` directory) and unified, so each engine does whatever it needs to adjust for its own API
+  * In theory the `prompts/` files are both bundled in the executable AND overridable at runtime with a local directory, but I haven't verified that much
 
 ## Ideas
 * [DONE] Matt showed me his iOS super calc that just came out, take inspiration from that!

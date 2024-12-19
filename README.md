@@ -92,6 +92,14 @@ Draw some stuff on your screen, and then trigger the assistant by *touching/tapp
   * A lot of other codebases take a model and then do a map; maybe I'll do that based on the model name or something
   * I also got the prompt and tool definitions externalized (into a `prompts/` directory) and unified, so each engine does whatever it needs to adjust for its own API
   * In theory the `prompts/` files are both bundled in the executable AND overridable at runtime with a local directory, but I haven't verified that much
+* **2024-12-18** - System Upgrade Panic
+  * I auto-update my remarkable, usually fine
+  * But I just got 3.16.2.3 and ... screenshots stopped working!
+  * So I used [codexctl](https://github.com/Jayy001/codexctl) to downgrade. It gave me a VERY scary "SystemError: Update failed!" and then the whole system locked up!
+  * ... but a reboot fixed it and the downgrade to 3.14.1.9 worked upon reboot
+  * So... I'm keeping an eye out for other reports of issues on the new version
+  * Oh yes. Now you can take prompts/general.json, rename it to `james.json` and go in and add "Your name is James" into the prompt. Then copy that to your reMarkable
+  * Now run `./remarkable --prompt james.json` and it has a locally modified prompt!<br/><img src="docs/james-name.png" width=300 border=1>
 
 ## Ideas
 * [DONE] Matt showed me his iOS super calc that just came out, take inspiration from that!

@@ -10,7 +10,7 @@ impl Touch {
         let device = if no_touch {
             None
         } else {
-            Some(Device::open("/dev/input/event2").unwrap())
+            Some(Device::open("/dev/input/by-path/platform-30a40000.i2c-event").unwrap())
         };
 
         Self { device }

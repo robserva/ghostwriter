@@ -30,8 +30,8 @@ Then you have to ssh over and run it. Here is how to install and run (run these 
 # Make it executable after the initial copy
 chmod +x ./ghostwriter
 
-./ghostwriter --help       # Get the options
-./ghostwriter text-assist  # Start a text/keyboard-replying session
+./ghostwriter --help # Get the options
+./ghostwriter        # Start a text/keyboard-replying session
 ```
 
 Draw some stuff on your screen, and then trigger the assistant by *touching/tapping the upper-right corner with your finger*. In the ssh session you'll see other touch-detections and there is a log of what happens while it is processing. You should see some dots drawn during processing and then a typewritten or drawn response!
@@ -151,7 +151,7 @@ Draw some stuff on your screen, and then trigger the assistant by *touching/tapp
 ## Development
 
 ```sh
-# Initial dependencies install (also ... rust)
+# Initial dependencies install (also ... rust, which I get via asdf)
 rustup target add armv7-unknown-linux-gnueabihf
 sudo apt-get install gcc-arm-linux-gnueabihf
 cargo install cross

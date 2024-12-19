@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 
 use serde_json::Value as json;
 
-use clap::{Parser, Subcommand};
+use clap::Parser;
 
 use base64::prelude::*;
 
@@ -82,23 +82,13 @@ struct Args {
     /// Apply segmentation
     #[arg(long)]
     apply_segmentation: bool,
-
-    #[command(subcommand)]
-    command: Option<Command>,
-}
-
-#[derive(Subcommand)]
-enum Command {
-    TextAssist,
 }
 
 fn main() -> Result<()> {
     dotenv().ok();
     let args = Args::parse();
 
-    match &args.command {
-        Some(Command::TextAssist) | None => ghostwriter(&args),
-    }
+    ghostwriter(&args)
 }
 
 fn draw_text(text: &str, keyboard: &mut Keyboard) -> Result<()> {

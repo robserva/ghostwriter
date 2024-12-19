@@ -207,30 +207,32 @@ Prompt / Tool ideas:
 * Increasingly, the reMarkable2 case might HAPPEN to be a specific prompt we set up in this system...
 * So the state machine chould be:
 
-```plantuml
-  [*] --> Screenshot
-  Screenshot --> OutputScreen
-  Screenshot --> OutputKeyboardText
+```mermaid
+stateDiagram-v2
+    [*] --> Screenshot
+    Screenshot --> OutputScreen
+    Screenshot --> OutputKeyboardText
 ```
 
-```plantuml
-  [*] --> WaitForTouch
-  WaitForTouch --> Screenshot
-  Screenshot --> OutputScreen
-  Screenshot --> OutputKeyboardText
-  OutputScreen --> [*]
-  OutputKeyboardText --> [*]
+```mermaid
+stateDiagram-v2
+    [*] --> WaitForTouch
+    WaitForTouch --> Screenshot
+    Screenshot --> OutputScreen
+    Screenshot --> OutputKeyboardText
+    OutputScreen --> [*]
+    OutputKeyboardText --> [*]
 ```
 
-```plantuml
-  [*] -> WaitForTouch
-  WaitForTouch --> Screenshot
-  Screenshot --> Thinking
-  Thinking -> Thinking
-  Thinking --> OutputScreen
-  Thinking --> OutputKeyboardText
-  OutputScreen --> [*]
-  OutputKeyboardText --> [*]
+```mermaid
+stateDiagram-v2
+    [*] --> WaitForTouch
+    WaitForTouch --> Screenshot
+    Screenshot --> Thinking
+    Thinking --> Thinking
+    Thinking --> OutputScreen
+    Thinking --> OutputKeyboardText
+    OutputScreen --> [*]
+    OutputKeyboardText --> [*]
 ```
-
 

@@ -40,7 +40,7 @@ struct Args {
     model: String,
 
     /// Sets the prompt to use
-    #[arg(long, default_value = "general")]
+    #[arg(long, default_value = "general.json")]
     prompt: String,
 
     /// Do not actually submit to the model, for testing
@@ -130,16 +130,20 @@ fn draw_svg(
 }
 
 fn load_config(filename: &str) -> String {
-    std::fs::read_to_string(format!("prompts/{}.json", filename)).unwrap_or(
+    println!("Loading config from {}", filename);
+
+    if std::path::Path::new(filename).exists() {
+        std::fs::read_to_string(filename).unwrap()
+    } else {
         std::str::from_utf8(
-            Asset::get(format!("{}.json", filename).as_str())
+            Asset::get(filename)
                 .unwrap()
                 .data
-                .as_ref(),
+                .as_ref()
         )
         .unwrap()
-        .to_string(),
-    )
+        .to_string()
+    }
 }
 
 fn ghostwriter(args: &Args) -> Result<()> {
@@ -159,7 +163,7 @@ fn ghostwriter(args: &Args) -> Result<()> {
     let no_draw = args.no_draw;
     let keyboard_clone = Arc::clone(&keyboard);
 
-    let tool_config_draw_text = load_config("tool_draw_text");
+    let tool_config_draw_text = load_config("tool_draw_text.json");
 
     engine.register_tool(
         "draw_text",
@@ -182,7 +186,7 @@ fn ghostwriter(args: &Args) -> Result<()> {
     let keyboard_clone = Arc::clone(&keyboard);
     let pen_clone = Arc::clone(&pen);
 
-    let tool_config_draw_svg = load_config("tool_draw_svg");
+    let tool_config_draw_svg = load_config("tool_draw_svg.json");
     engine.register_tool(
         "draw_svg",
         serde_json::from_str::<serde_json::Value>(tool_config_draw_svg.as_str())?,
@@ -245,7 +249,7 @@ fn ghostwriter(args: &Args) -> Result<()> {
         };
         println!("Segmentation description: {}", segmentation_description);
 
-        let prompt_general_raw = load_config("general");
+        let prompt_general_raw = load_config(&args.prompt);
         let prompt_general_json =
             serde_json::from_str::<serde_json::Value>(prompt_general_raw.as_str())?;
         let prompt = prompt_general_json["prompt"].as_str().unwrap();

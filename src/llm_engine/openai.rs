@@ -89,7 +89,8 @@ impl LLMEngine for OpenAI {
         // print body for debugging
         println!("Request: {}", body);
 
-        let raw_response = ureq::post("https://api.openai.com/v1/chat/completions")
+        let api_base_url = std::env::var("OPENAI_BASE_URL").unwrap_or("https://api.openai.com".to_string());
+        let raw_response = ureq::post(format!("{}/v1/chat/completions", api_base_url).as_str())
             .set("Authorization", &format!("Bearer {}", self.api_key))
             .set("Content-Type", "application/json")
             .send_json(&body);

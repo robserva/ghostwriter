@@ -100,6 +100,15 @@ Draw some stuff on your screen, and then trigger the assistant by *touching/tapp
   * So... I'm keeping an eye out for other reports of issues on the new version
   * Oh yes. Now you can take prompts/general.json, rename it to `james.json` and go in and add "Your name is James" into the prompt. Then copy that to your reMarkable
   * Now run `./remarkable --prompt james.json` and it has a locally modified prompt!<br/><img src="docs/james-name.png" width=300 border=1>
+* **2024-12-19** -- Not Quite Local
+  * On the internet they suggested a local-network VLM mode
+  * Ollama has that! So I tried...
+  * But it says that llama3.2-vision doesn't have tools :(
+  * But Groq llama-3.2 does!
+  * ... but it is not very good at tic-tac-toe (this is the 90b). Though it is very fast!<br/><img src="docs/groq-tic-tac-toe-1.png" width=200 border=1><img src="docs/groq-tic-tac-toe-2.png" width=200 border=1><img src="docs/groq-tic-tac-toe-3.png" width=200 border=1>
+  * Oops! I forgot to turn on segmentation. Here it is with that enabled which should give a better sense of space...<br/><img src="docs/groq-tic-tac-toe-4.png" width=200 border=1><img src="docs/groq-tic-tac-toe-5.png" width=200 border=1><img src="docs/groq-tic-tac-toe-6.png" width=200 border=1>
+  * Here are 3 runs from claude in contrast<br/><img src="docs/claude-tic-tac-toe-1.png" width=200 border=1><img src="docs/claude-tic-tac-toe-2.png" width=200 border=1><img src="docs/claude-tic-tac-toe-3.png" width=200 border=1>
+  * Well. The new ENV is `OPENAI_BASE_URL`, so `OPENAI_BASE_URL=https://api.groq.com/openai ./ghostwriter --engine openai --model llama-3.2-90b-vision-preview` for example
 
 ## Ideas
 * [DONE] Matt showed me his iOS super calc that just came out, take inspiration from that!
@@ -146,6 +155,7 @@ Draw some stuff on your screen, and then trigger the assistant by *touching/tapp
   * Or could use the same color structure but a whole chain of messages?
   * Might be weird when we go to a new blank page though. It'd look like the new input erased everything
   * In general this would also make it easier to handle scrolling maybe
+* Run off of a network-local vLLM (like ollama)
 
 ## References
 * Generally pulled resources from [Awesome reMarkable](https://github.com/reHackable/awesome-reMarkable)
@@ -189,7 +199,7 @@ mv tmp/* evaluations/$evaluation_name
 ./target/release/ghostwriter --input-png evaluations/$evaluation_name/input.png --output-file tmp/result.out --model-output-file tmp/result.json --save-bitmap tmp/result.png --no-draw --no-draw-progress --no-loop claude-assist
 
 # Layer the input and output
-magick \( evaluations/$evaluation_name/input.png -colorspace RGB \) \( tmp/result.png -type truecolormatte -transparent white -fill red -colorize 100 \) -compose Over -composite tmp/merged-output.png
+convert \( evaluations/$evaluation_name/input.png -colorspace RGB \) \( tmp/result.png -type truecolormatte -transparent white -fill red -colorize 100 \) -compose Over -composite tmp/merged-output.png
 ```
 
 Prompt / Tool ideas:

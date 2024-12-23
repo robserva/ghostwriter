@@ -9,7 +9,8 @@ use std::sync::Arc;
 pub fn svg_to_bitmap(svg_data: &str, width: u32, height: u32) -> Result<Vec<Vec<bool>>> {
     let mut opt = Options::default();
     let mut fontdb = fontdb::Database::new();
-    fontdb.load_fonts_dir("/usr/share/fonts/ttf/noto");
+    fontdb.load_system_fonts();
+
     opt.fontdb = Arc::new(fontdb);
 
     let tree = match Tree::from_str(svg_data, &opt) {

@@ -31,7 +31,7 @@ struct Asset;
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    /// Sets the engine to use
+    /// Sets the engine to use (openai, anthropic)
     #[arg(long, default_value = "anthropic")]
     engine: String,
 

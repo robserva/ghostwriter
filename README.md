@@ -27,11 +27,16 @@ scp ghostwriter root@192.168.1.117:
 Then you have to ssh over and run it. Here is how to install and run (run these on the remarkable):
 
 ```sh
-# Make it executable after the initial copy
+# One itme -- make it executable after the initial copy
 chmod +x ./ghostwriter
 
 ./ghostwriter --help # Get the options
-./ghostwriter        # Start a text/keyboard-replying session
+
+# Use the defaults, including claude-3-5-sonnet
+./ghostwriter
+
+# Use ChatGPT instead with the gpt-4o-mini model
+./ghostwriter --engine openai --model gpt-4o-mini
 ```
 
 Draw some stuff on your screen, and then trigger the assistant by *touching/tapping the upper-right corner with your finger*. In the ssh session you'll see other touch-detections and there is a log of what happens while it is processing. You should see some dots drawn during processing and then a typewritten or drawn response!
@@ -109,6 +114,15 @@ Draw some stuff on your screen, and then trigger the assistant by *touching/tapp
   * Oops! I forgot to turn on segmentation. Here it is with that enabled which should give a better sense of space...<br/><img src="docs/groq-tic-tac-toe-4.png" width=200 border=1><img src="docs/groq-tic-tac-toe-5.png" width=200 border=1><img src="docs/groq-tic-tac-toe-6.png" width=200 border=1>
   * Here are 3 runs from claude in contrast<br/><img src="docs/claude-tic-tac-toe-1.png" width=200 border=1><img src="docs/claude-tic-tac-toe-2.png" width=200 border=1><img src="docs/claude-tic-tac-toe-3.png" width=200 border=1>
   * Well. The new ENV is `OPENAI_BASE_URL`, so `OPENAI_BASE_URL=https://api.groq.com/openai ./ghostwriter --engine openai --model llama-3.2-90b-vision-preview` for example
+* **2024-12-22** -- Starting to Evaluate
+  * Starting to build out the evaluation system a bit more, including a [basic script to kick it all off](run_eval.sh)
+  * Right now it is a hard-wired set of parameters which basically turn on/off segmentation and use either Claude 3.5 Sonnet or ChatGPT 4o-mini
+  * See [the initial evaluation report](evaluation_results/2024-12-21_13-57-31/results.md)!
+  * I think markdown doesn't let me lay this out how I want, so will probably switch to html (maybe turn on github site hosting for it)
+  * This is starting to get into the terratory where it can take some time and money to execute ... running this a bunch of times and I sent like $1. Not sure how long it took. but there were 48 executions in this final report
+  * Oh -- I think it's rather important to run each set a few times assuming there is some temperature involved
+  * To scale this even further we of course would want to bring in a JUDGE-BOT!
+  * Then I could say things like "my new segmentation algorithm improved output quality by 17% per the JUDGE-BOT" etc
 
 ## Ideas
 * [DONE] Matt showed me his iOS super calc that just came out, take inspiration from that!

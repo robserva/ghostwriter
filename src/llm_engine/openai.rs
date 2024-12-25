@@ -2,6 +2,11 @@ use super::LLMEngine;
 use anyhow::Result;
 use serde_json::json;
 use serde_json::Value as json;
+use crate::util::{
+    option_or_env,
+    option_or_env_fallback,
+    OptionMap
+};
 
 use ureq::Error;
 
@@ -13,6 +18,7 @@ pub struct Tool {
 
 pub struct OpenAI {
     model: String,
+    base_url: String,
     api_key: String,
     tools: Vec<Tool>,
     content: Vec<json>,
@@ -36,10 +42,14 @@ impl OpenAI {
 }
 
 impl LLMEngine for OpenAI {
-    fn new(model: String) -> Self {
-        let api_key = std::env::var("OPENAI_API_KEY").unwrap();
+    fn new(options: &OptionMap) -> Self {
+        let api_key = option_or_env(&options, "api_key", "OPENAI_API_KEY");
+        let base_url = option_or_env_fallback(&options, "base_url", "OPENAI_BASE_URL", "https://api.openai.com");
+        let model = options.get("model").unwrap().to_string();
+
         Self {
             model,
+            base_url,
             api_key,
             tools: Vec::new(),
             content: Vec::new(),
@@ -88,9 +98,7 @@ impl LLMEngine for OpenAI {
 
         // print body for debugging
         println!("Request: {}", body);
-
-        let api_base_url = std::env::var("OPENAI_BASE_URL").unwrap_or("https://api.openai.com".to_string());
-        let raw_response = ureq::post(format!("{}/v1/chat/completions", api_base_url).as_str())
+        let raw_response = ureq::post(format!("{}/v1/chat/completions", self.base_url).as_str())
             .set("Authorization", &format!("Bearer {}", self.api_key))
             .set("Content-Type", "application/json")
             .send_json(&body);

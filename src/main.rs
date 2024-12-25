@@ -18,7 +18,7 @@ use ghostwriter::{
     screenshot::Screenshot,
     segmenter::analyze_image,
     touch::Touch,
-    util::{svg_to_bitmap, write_bitmap_to_file},
+    util::{svg_to_bitmap, write_bitmap_to_file, OptionMap},
 };
 
 const REMARKABLE_WIDTH: u32 = 768;
@@ -29,14 +29,28 @@ const REMARKABLE_HEIGHT: u32 = 1024;
 struct Asset;
 
 #[derive(Parser)]
-#[command(author, version, about, long_about = None)]
+#[command(author, version)]
+#[command(about = "Vision-LLM Agent for the reMarkable2")]
+#[command(long_about = "Ghostwriter is an exploration of how to interact with vision-LLM through the handwritten medium of the reMarkable2. It is a pluggable system; you can provide a custom prompt and custom 'tools' that the agent can use.")]
+#[command(after_help = "See https://github.com/awwaiid/ghostwriter for updates!")]
 struct Args {
-    /// Sets the engine to use (openai, anthropic)
-    #[arg(long, default_value = "anthropic")]
-    engine: String,
+    /// Sets the engine to use (openai, anthropic);
+    /// Sometimes we can guess the engine from the model name
+    #[arg(long)]
+    engine: Option<String>,
+
+    /// Sets the base URL for the engine API;
+    /// Or use environment variable OPENAI_BASE_URL or ANTHROPIC_BASE_URL
+    #[arg(long)]
+    engine_base_url: Option<String>,
+
+    /// Sets the API key for the engine;
+    /// Or use environment variable OPENAI_API_KEY or ANTHROPIC_API_KEY
+    #[arg(long)]
+    engine_api_key: Option<String>,
 
     /// Sets the model to use
-    #[arg(long, default_value = "claude-3-5-sonnet-latest")]
+    #[arg(long, short, default_value = "claude-3-5-sonnet-latest")]
     model: String,
 
     /// Sets the prompt to use
@@ -139,9 +153,34 @@ fn ghostwriter(args: &Args) -> Result<()> {
     let pen = Arc::new(Mutex::new(Pen::new(args.no_draw)));
     let mut touch = Touch::new(args.no_draw);
 
-    let mut engine: Box<dyn LLMEngine> = match args.engine.as_str() {
-        "openai" => Box::new(OpenAI::new(args.model.clone())),
-        _ => Box::new(Anthropic::new(args.model.clone())),
+    let mut engine_options = OptionMap::new();
+
+    let model = args.model.clone();
+    engine_options.insert("model".to_string(), model.clone());
+
+    let engine_name = if let Some(engine) = args.engine.clone() {
+        engine.to_string()
+    } else {
+        if model.starts_with("gpt") {
+            "openai".to_string()
+        } else if model.starts_with("claude") {
+            "anthropic".to_string()
+        } else {
+            panic!("Unable to guess engine from model name {}", model)
+        }
+    };
+
+    if args.engine_base_url.is_some() {
+        engine_options.insert("base_url".to_string(), args.engine_base_url.clone().unwrap());
+    }
+    if args.engine_api_key.is_some() {
+        engine_options.insert("api_key".to_string(), args.engine_api_key.clone().unwrap());
+    }
+
+    let mut engine: Box<dyn LLMEngine> = match engine_name.as_str() {
+        "openai" => Box::new(OpenAI::new(&engine_options)),
+        "anthropic" => Box::new(Anthropic::new(&engine_options)),
+        _ => panic!("Unknown engine {}", engine_name),
     };
 
     let output_file = args.output_file.clone();

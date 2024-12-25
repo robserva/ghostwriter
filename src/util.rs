@@ -5,6 +5,9 @@ use resvg::tiny_skia::Pixmap;
 use resvg::usvg;
 use resvg::usvg::{fontdb, Options, Tree};
 use std::sync::Arc;
+use std::collections::HashMap;
+
+pub type OptionMap = HashMap<String, String>;
 
 pub fn svg_to_bitmap(svg_data: &str, width: u32, height: u32) -> Result<Vec<Vec<bool>>> {
     let mut opt = Options::default();
@@ -53,3 +56,22 @@ pub fn write_bitmap_to_file(bitmap: &Vec<Vec<bool>>, filename: &str) -> Result<(
     println!("Bitmap saved to {}", filename);
     Ok(())
 }
+
+pub fn option_or_env(options: &OptionMap, key: &str, env_key: &str) -> String {
+    let option = options.get(key);
+    if option.is_some() {
+        option.unwrap().to_string()
+    } else {
+        std::env::var(env_key.to_string()).unwrap().to_string()
+    }
+}
+
+pub fn option_or_env_fallback(options: &OptionMap, key: &str, env_key: &str, fallback: &str) -> String {
+    let option = options.get(key);
+    if option.is_some() {
+        option.unwrap().to_string()
+    } else {
+        std::env::var(env_key.to_string()).unwrap_or(fallback.to_string()).to_string()
+    }
+}
+

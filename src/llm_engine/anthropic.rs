@@ -2,6 +2,11 @@ use super::LLMEngine;
 use anyhow::Result;
 use serde_json::json;
 use serde_json::Value as json;
+use crate::util::{
+    option_or_env,
+    option_or_env_fallback,
+    OptionMap
+};
 
 use ureq::Error;
 
@@ -14,6 +19,7 @@ pub struct Tool {
 pub struct Anthropic {
     model: String,
     api_key: String,
+    base_url: String,
     tools: Vec<Tool>,
     content: Vec<json>,
 }
@@ -33,10 +39,13 @@ impl Anthropic {
 }
 
 impl LLMEngine for Anthropic {
-    fn new(model: String) -> Self {
-        let api_key = std::env::var("ANTHROPIC_API_KEY").unwrap();
+    fn new(options: &OptionMap) -> Self {
+        let api_key = option_or_env(&options, "api_key", "ANTHROPIC_API_KEY");
+        let base_url = option_or_env_fallback(&options, "base_url", "ANTHROPIC_BASE_URL", "https://api.anthropic.com");
+        let model = options.get("model").unwrap().to_string();
         Self {
             model,
+            base_url,
             api_key,
             tools: Vec::new(),
             content: Vec::new(),
@@ -91,7 +100,7 @@ impl LLMEngine for Anthropic {
         // print body for debugging
         println!("Request: {}", body);
 
-        let raw_response = ureq::post("https://api.anthropic.com/v1/messages")
+        let raw_response = ureq::post(&format!("{}/v1/messages", self.base_url))
             .set("x-api-key", self.api_key.as_str())
             .set("anthropic-version", "2023-06-01")
             .set("Content-Type", "application/json")

@@ -129,6 +129,7 @@ Draw some stuff on your screen, and then trigger the assistant by *touching/tapp
   * So now to use [Groq](https://groq.com/): `./ghostwriter -m llama-3.2-90b-vision-preview --engine-api-key $GROQ_API_KEY --engine openai --engine-base-url https://api.groq.com/openai`
   * ... but so far Llama 3.2 90b vision is still quite bad with this interface
   * I turned off a bunch of debugging. Now I'll need to go back and introduce log-level or something
+  * BONUS: And now I've added Google Gemini! Try `-m gemini-2.0-flash-exp` with your `GEMINI_API_KEY` set!
 
 ## Ideas
 * [DONE] Matt showed me his iOS super calc that just came out, take inspiration from that!

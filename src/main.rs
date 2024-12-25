@@ -13,7 +13,7 @@ use rust_embed::Embed;
 
 use ghostwriter::{
     keyboard::Keyboard,
-    llm_engine::{anthropic::Anthropic, openai::OpenAI, LLMEngine},
+    llm_engine::{anthropic::Anthropic, openai::OpenAI, google::Google, LLMEngine},
     pen::Pen,
     screenshot::Screenshot,
     segmenter::analyze_image,
@@ -167,6 +167,8 @@ fn ghostwriter(args: &Args) -> Result<()> {
             "openai".to_string()
         } else if model.starts_with("claude") {
             "anthropic".to_string()
+        } else if model.starts_with("gemini") {
+            "google".to_string()
         } else {
             panic!("Unable to guess engine from model name {}", model)
         }
@@ -185,6 +187,7 @@ fn ghostwriter(args: &Args) -> Result<()> {
     let mut engine: Box<dyn LLMEngine> = match engine_name.as_str() {
         "openai" => Box::new(OpenAI::new(&engine_options)),
         "anthropic" => Box::new(Anthropic::new(&engine_options)),
+        "google" => Box::new(Google::new(&engine_options)),
         _ => panic!("Unknown engine {}", engine_name),
     };
 

@@ -97,7 +97,7 @@ impl LLMEngine for OpenAI {
         });
 
         // print body for debugging
-        println!("Request: {}", body);
+        // println!("Request: {}", body);
         let raw_response = ureq::post(format!("{}/v1/chat/completions", self.base_url).as_str())
             .set("Authorization", &format!("Bearer {}", self.api_key))
             .set("Content-Type", "application/json")
@@ -115,7 +115,7 @@ impl LLMEngine for OpenAI {
         };
 
         let json: json = response.into_json().unwrap();
-        println!("Response: {}", json);
+        // println!("Response: {}", json);
 
         let tool_calls = &json["choices"][0]["message"]["tool_calls"];
 

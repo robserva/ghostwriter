@@ -123,6 +123,12 @@ Draw some stuff on your screen, and then trigger the assistant by *touching/tapp
   * Oh -- I think it's rather important to run each set a few times assuming there is some temperature involved
   * To scale this even further we of course would want to bring in a JUDGE-BOT!
   * Then I could say things like "my new segmentation algorithm improved output quality by 17% per the JUDGE-BOT" etc
+* **2024-12-25** -- CLI simplify and expand
+  * Now you can pass just `-m gpt-4o-mini` and it will guess the engine is `openai`
+  * You can also pass `--engine-api-key` and `--engine-url-base`
+  * So now to use [Groq](https://groq.com/): `./ghostwriter -m llama-3.2-90b-vision-preview --engine-api-key $GROQ_API_KEY --engine openai --engine-base-url https://api.groq.com/openai`
+  * ... but so far Llama 3.2 90b vision is still quite bad with this interface
+  * I turned off a bunch of debugging. Now I'll need to go back and introduce log-level or something
 
 ## Ideas
 * [DONE] Matt showed me his iOS super calc that just came out, take inspiration from that!

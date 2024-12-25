@@ -33,12 +33,12 @@ impl ImageAnalyzer {
         &self,
         image_path: &str,
     ) -> Result<SegmentationResult, Box<dyn std::error::Error>> {
-        println!("Reading image from: {}", image_path);
+        // println!("Reading image from: {}", image_path);
 
         // Read image and convert to grayscale
         let img = image::open(image_path)?.to_rgb8();
         let (width, height) = img.dimensions();
-        println!("Image loaded: {}x{}", width, height);
+        // println!("Image loaded: {}x{}", width, height);
 
         // Convert to grayscale
         let gray: GrayImage = image::imageops::grayscale(&img);
@@ -55,7 +55,7 @@ impl ImageAnalyzer {
 
         // Find contours
         let contours = find_contours(&binary);
-        println!("Found {} contours", contours.len());
+        // println!("Found {} contours", contours.len());
 
         // Process regions
         let mut regions = Vec::new();
@@ -91,7 +91,7 @@ impl ImageAnalyzer {
         regions.sort_by(|a, b| b.area.partial_cmp(&a.area).unwrap());
         regions.truncate(self.max_regions);
 
-        println!("Processed {} significant regions", regions.len());
+        // println!("Processed {} significant regions", regions.len());
 
         Ok(SegmentationResult {
             regions,
@@ -156,12 +156,12 @@ impl ImageAnalyzer {
 }
 
 pub fn analyze_image(image_path: &str) -> Result<String, Box<dyn std::error::Error>> {
-    println!("Reading image from: {}", image_path);
+    // println!("Reading image from: {}", image_path);
 
     // Read image and convert to grayscale
     let img = image::open(image_path)?.to_rgb8();
     let (width, height) = img.dimensions();
-    println!("Image loaded: {}x{}", width, height);
+    // println!("Image loaded: {}x{}", width, height);
 
     // Convert to grayscale
     let gray: GrayImage = image::imageops::grayscale(&img);
@@ -178,16 +178,16 @@ pub fn analyze_image(image_path: &str) -> Result<String, Box<dyn std::error::Err
 
     // Find contours
     let contours = find_contours(&binary);
-    println!("Found {} contours", contours.len());
+    // println!("Found {} contours", contours.len());
 
     // Process regions
     let mut regions = Vec::new();
     let min_area = 50.0; // (width * height) as f32 * 0.001; // Assuming min_region_size is 0.01
-    println!("Min region area: {}", min_area);
+    // println!("Min region area: {}", min_area);
 
     for contour in contours {
         let area = contour_area(&contour.points) as f32;
-        println!("Contour area: {}", area);
+        // println!("Contour area: {}", area);
 
         if area >= min_area {
             let bounds = min_area_rect(&contour.points);
@@ -216,7 +216,7 @@ pub fn analyze_image(image_path: &str) -> Result<String, Box<dyn std::error::Err
     regions.sort_by(|a, b| b.area.partial_cmp(&a.area).unwrap());
     regions.truncate(10); // Assuming max_regions is 10
 
-    println!("Processed {} significant regions", regions.len());
+    // println!("Processed {} significant regions", regions.len());
 
     let mut result = String::new();
     for region in regions {

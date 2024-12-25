@@ -98,7 +98,7 @@ impl LLMEngine for Anthropic {
         });
 
         // print body for debugging
-        println!("Request: {}", body);
+        // println!("Request: {}", body);
 
         let raw_response = ureq::post(&format!("{}/v1/messages", self.base_url))
             .set("x-api-key", self.api_key.as_str())
@@ -118,7 +118,7 @@ impl LLMEngine for Anthropic {
         };
 
         let json: json = response.into_json().unwrap();
-        println!("Response: {}", json);
+        // println!("Response: {}", json);
         let tool_calls = &json["content"];
         if let Some(tool_call) = tool_calls.get(0) {
             let function_name = tool_call["name"].as_str().unwrap();

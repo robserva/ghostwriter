@@ -134,7 +134,7 @@ fn draw_svg(
 }
 
 fn load_config(filename: &str) -> String {
-    println!("Loading config from {}", filename);
+    // println!("Loading config from {}", filename);
 
     if std::path::Path::new(filename).exists() {
         std::fs::read_to_string(filename).unwrap()
@@ -271,7 +271,7 @@ fn ghostwriter(args: &Args) -> Result<()> {
         } else {
             String::new()
         };
-        println!("Segmentation description: {}", segmentation_description);
+        // println!("Segmentation description: {}", segmentation_description);
 
         let prompt_general_raw = load_config(&args.prompt);
         let prompt_general_json =

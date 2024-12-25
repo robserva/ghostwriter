@@ -31,7 +31,9 @@ struct Asset;
 #[derive(Parser)]
 #[command(author, version)]
 #[command(about = "Vision-LLM Agent for the reMarkable2")]
-#[command(long_about = "Ghostwriter is an exploration of how to interact with vision-LLM through the handwritten medium of the reMarkable2. It is a pluggable system; you can provide a custom prompt and custom 'tools' that the agent can use.")]
+#[command(
+    long_about = "Ghostwriter is an exploration of how to interact with vision-LLM through the handwritten medium of the reMarkable2. It is a pluggable system; you can provide a custom prompt and custom 'tools' that the agent can use."
+)]
 #[command(after_help = "See https://github.com/awwaiid/ghostwriter for updates!")]
 struct Args {
     /// Sets the engine to use (openai, anthropic);
@@ -171,7 +173,10 @@ fn ghostwriter(args: &Args) -> Result<()> {
     };
 
     if args.engine_base_url.is_some() {
-        engine_options.insert("base_url".to_string(), args.engine_base_url.clone().unwrap());
+        engine_options.insert(
+            "base_url".to_string(),
+            args.engine_base_url.clone().unwrap(),
+        );
     }
     if args.engine_api_key.is_some() {
         engine_options.insert("api_key".to_string(), args.engine_api_key.clone().unwrap());

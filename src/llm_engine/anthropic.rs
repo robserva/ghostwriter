@@ -1,12 +1,8 @@
 use super::LLMEngine;
+use crate::util::{option_or_env, option_or_env_fallback, OptionMap};
 use anyhow::Result;
 use serde_json::json;
 use serde_json::Value as json;
-use crate::util::{
-    option_or_env,
-    option_or_env_fallback,
-    OptionMap
-};
 
 use ureq::Error;
 
@@ -41,7 +37,12 @@ impl Anthropic {
 impl LLMEngine for Anthropic {
     fn new(options: &OptionMap) -> Self {
         let api_key = option_or_env(&options, "api_key", "ANTHROPIC_API_KEY");
-        let base_url = option_or_env_fallback(&options, "base_url", "ANTHROPIC_BASE_URL", "https://api.anthropic.com");
+        let base_url = option_or_env_fallback(
+            &options,
+            "base_url",
+            "ANTHROPIC_BASE_URL",
+            "https://api.anthropic.com",
+        );
         let model = options.get("model").unwrap().to_string();
         Self {
             model,

@@ -4,8 +4,8 @@ use resvg::render;
 use resvg::tiny_skia::Pixmap;
 use resvg::usvg;
 use resvg::usvg::{fontdb, Options, Tree};
-use std::sync::Arc;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 pub type OptionMap = HashMap<String, String>;
 
@@ -66,12 +66,18 @@ pub fn option_or_env(options: &OptionMap, key: &str, env_key: &str) -> String {
     }
 }
 
-pub fn option_or_env_fallback(options: &OptionMap, key: &str, env_key: &str, fallback: &str) -> String {
+pub fn option_or_env_fallback(
+    options: &OptionMap,
+    key: &str,
+    env_key: &str,
+    fallback: &str,
+) -> String {
     let option = options.get(key);
     if option.is_some() {
         option.unwrap().to_string()
     } else {
-        std::env::var(env_key.to_string()).unwrap_or(fallback.to_string()).to_string()
+        std::env::var(env_key.to_string())
+            .unwrap_or(fallback.to_string())
+            .to_string()
     }
 }
-

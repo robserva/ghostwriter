@@ -1,12 +1,8 @@
 use super::LLMEngine;
+use crate::util::{option_or_env, option_or_env_fallback, OptionMap};
 use anyhow::Result;
 use serde_json::json;
 use serde_json::Value as json;
-use crate::util::{
-    option_or_env,
-    option_or_env_fallback,
-    OptionMap
-};
 
 use ureq::Error;
 
@@ -44,7 +40,12 @@ impl OpenAI {
 impl LLMEngine for OpenAI {
     fn new(options: &OptionMap) -> Self {
         let api_key = option_or_env(&options, "api_key", "OPENAI_API_KEY");
-        let base_url = option_or_env_fallback(&options, "base_url", "OPENAI_BASE_URL", "https://api.openai.com");
+        let base_url = option_or_env_fallback(
+            &options,
+            "base_url",
+            "OPENAI_BASE_URL",
+            "https://api.openai.com",
+        );
         let model = options.get("model").unwrap().to_string();
 
         Self {

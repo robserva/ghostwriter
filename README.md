@@ -10,9 +10,10 @@
 You need an `OPENAI_API_KEY` environment variable set. I did this by adding it to my ~/.bashrc file on the remarkable:
 
 ```sh
-# In the remarkable's ~/.bashrc or before you run ghostwriter
+# In the remarkable's ~/.bashrc or before you run ghostwriter, set one or more of your keys
 export OPENAI_API_KEY=your-key-here
 export ANTHROPIC_API_KEY=your-key-here
+export GOOGLE_API_KEY=your-key-here
 ```
 
 Install by getting the binary to your remarkable. On your not-remarkable:
@@ -35,8 +36,8 @@ chmod +x ./ghostwriter
 # Use the defaults, including claude-3-5-sonnet
 ./ghostwriter
 
-# Use ChatGPT instead with the gpt-4o-mini model
-./ghostwriter --engine openai --model gpt-4o-mini
+# Use ChatGPT with the gpt-4o-mini model
+./ghostwriter --model gpt-4o-mini
 ```
 
 Draw some stuff on your screen, and then trigger the assistant by *touching/tapping the upper-right corner with your finger*. In the ssh session you'll see other touch-detections and there is a log of what happens while it is processing. You should see some dots drawn during processing and then a typewritten or drawn response!
@@ -129,7 +130,7 @@ Draw some stuff on your screen, and then trigger the assistant by *touching/tapp
   * So now to use [Groq](https://groq.com/): `./ghostwriter -m llama-3.2-90b-vision-preview --engine-api-key $GROQ_API_KEY --engine openai --engine-base-url https://api.groq.com/openai`
   * ... but so far Llama 3.2 90b vision is still quite bad with this interface
   * I turned off a bunch of debugging. Now I'll need to go back and introduce log-level or something
-  * BONUS: And now I've added Google Gemini! Try `-m gemini-2.0-flash-exp` with your `GEMINI_API_KEY` set!
+  * BONUS: And now I've added Google Gemini! Try `-m gemini-2.0-flash-exp` with your `GEMINI_API_KEY` set!<br /><img src="docs/gemini_hello_chihuahua.png" width=200 border=1>
 
 ## Ideas
 * [DONE] Matt showed me his iOS super calc that just came out, take inspiration from that!

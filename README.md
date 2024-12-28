@@ -131,6 +131,10 @@ Draw some stuff on your screen, and then trigger the assistant by *touching/tapp
   * ... but so far Llama 3.2 90b vision is still quite bad with this interface
   * I turned off a bunch of debugging. Now I'll need to go back and introduce log-level or something
   * BONUS: And now I've added Google Gemini! Try `-m gemini-2.0-flash-exp` with your `GEMINI_API_KEY` set!<br /><img src="docs/gemini_hello_chihuahua.png" width=200 border=1>
+* **2024-12-28** -- Usability
+  * I used a powered usb-hub to get an external keyboard plugged in, trying to see what sort of keyboard shortcuts we might have
+  * That helped to get a further sense for where the keyboard input goes
+  * So now I'm sending an extra touch-event in the bottom-center of the screen which will make the next keyboard input always go below the lowest element, which is what I wanted. Before it would go below the most recent typed text, so if you drew under that it would get confusing. Before, the answer to "what is your favorite color?" would have been placed directly below the first typed output; now it is nice and neatly put lower down! Also I guess this is a dream-bubble of a sheep?<br /><img src="docs/sheep-dreams.png" width=300 border=1>
 
 ## Ideas
 * [DONE] Matt showed me his iOS super calc that just came out, take inspiration from that!

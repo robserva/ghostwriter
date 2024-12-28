@@ -107,6 +107,14 @@ fn main() -> Result<()> {
     ghostwriter(&args)
 }
 
+macro_rules! shared {
+   ($x:expr) => { Arc::new(Mutex::new($x)) }
+}
+
+macro_rules! lock {
+   ($x:expr) => { $x.lock().unwrap() }
+}
+
 fn draw_text(text: &str, keyboard: &mut Keyboard) -> Result<()> {
     keyboard.progress()?;
     keyboard.progress_end()?;
@@ -148,12 +156,12 @@ fn load_config(filename: &str) -> String {
 }
 
 fn ghostwriter(args: &Args) -> Result<()> {
-    let keyboard = Arc::new(Mutex::new(Keyboard::new(
+    let keyboard = shared!(Keyboard::new(
         args.no_draw,
         args.no_draw_progress,
-    )));
-    let pen = Arc::new(Mutex::new(Pen::new(args.no_draw)));
-    let mut touch = Touch::new(args.no_draw);
+    ));
+    let pen = shared!(Pen::new(args.no_draw));
+    let touch = shared!(Touch::new(args.no_draw));
 
     let mut engine_options = OptionMap::new();
 
@@ -194,6 +202,7 @@ fn ghostwriter(args: &Args) -> Result<()> {
     let output_file = args.output_file.clone();
     let no_draw = args.no_draw;
     let keyboard_clone = Arc::clone(&keyboard);
+    let touch_clone = Arc::clone(&touch);
 
     let tool_config_draw_text = load_config("tool_draw_text.json");
 
@@ -206,7 +215,12 @@ fn ghostwriter(args: &Args) -> Result<()> {
                 std::fs::write(output_file, text).unwrap();
             }
             if !no_draw {
-                let mut keyboard = keyboard_clone.lock().unwrap();
+                // Touch in the middle bottom to make sure we go below any new drawing
+                lock!(touch_clone).touch_start((384, 1000)).unwrap(); // middle bottom
+                lock!(touch_clone).touch_stop().unwrap();
+
+                let mut keyboard = lock!(keyboard_clone);
+
                 draw_text(text, &mut keyboard).unwrap();
             }
         }),
@@ -227,8 +241,8 @@ fn ghostwriter(args: &Args) -> Result<()> {
             if let Some(output_file) = &output_file {
                 std::fs::write(output_file, svg_data).unwrap();
             }
-            let mut keyboard = keyboard_clone.lock().unwrap();
-            let mut pen = pen_clone.lock().unwrap();
+            let mut keyboard = lock!(keyboard_clone);
+            let mut pen = lock!(pen_clone);
             draw_svg(
                 svg_data,
                 &mut keyboard,
@@ -245,10 +259,10 @@ fn ghostwriter(args: &Args) -> Result<()> {
             println!("Using input PNG file: {}", input_png);
         } else {
             println!("Waiting for trigger (hand-touch in the upper-right corner)...");
-            touch.wait_for_trigger()?;
+            lock!(touch).wait_for_trigger()?;
         }
 
-        keyboard.lock().unwrap().progress()?;
+        lock!(keyboard).progress()?;
 
         let base64_image = if let Some(input_png) = &args.input_png {
             BASE64_STANDARD.encode(std::fs::read(input_png)?)
@@ -259,11 +273,11 @@ fn ghostwriter(args: &Args) -> Result<()> {
             }
             screenshot.base64()?
         };
-        keyboard.lock().unwrap().progress()?;
+        lock!(keyboard).progress()?;
 
         if args.no_submit {
             println!("Image not submitted to OpenAI due to --no-submit flag");
-            keyboard.lock().unwrap().progress_end()?;
+            lock!(keyboard).progress_end()?;
             return Ok(());
         }
 

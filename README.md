@@ -5,9 +5,9 @@
 
 <img src="docs/example-kansas.gif">
 
-## Usage
+## Setup/Installation
 
-You need an `OPENAI_API_KEY` environment variable set. I did this by adding it to my ~/.bashrc file on the remarkable:
+You need an `OPENAI_API_KEY` (or similar for other models) environment variable set. I did this by adding it to my ~/.bashrc file on the remarkable:
 
 ```sh
 # In the remarkable's ~/.bashrc or before you run ghostwriter, set one or more of your keys
@@ -31,8 +31,13 @@ Then you have to ssh over and run it. Here is how to install and run (run these 
 # One itme -- make it executable after the initial copy
 chmod +x ./ghostwriter
 
-./ghostwriter --help # Get the options
+./ghostwriter --help # Get the options and see that it runs at all
+```
 
+## Usage
+
+First you need to start `ghostwriter` on the reMarkable. SSH into your remarkable and run:
+```
 # Use the defaults, including claude-3-5-sonnet
 ./ghostwriter
 
@@ -147,7 +152,13 @@ Draw some stuff on your screen, and then trigger the assistant by *touching/tapp
 * [DONE] OK ... we can also send *keyboard* events! That means we can use the Remarkable text area. This is an awkward and weird text area that lives on a different layer from the drawing
   * So maybe we can say drawing = human, text = machine
   * Probably a lot easier to erase too...
-* Prompt library
+* [DONE] Basic Evaluation
+  * Create a set of screenshots for inputs
+  * Represent different use-cases
+  * Some of these, such as TODO-extraction, might have specific expectations for output or execution, but most of them won't
+  * Run through the system to get example output -- text, svg, actions
+  * Write a test suite to judge the results .... somewhat human powered? Separate VLM judge?
+* [WIP] Prompt library
   * There is already the start of this in <a href="prompts/">prompts/</a>
   * The idea is to give a set of tools (maybe actual llm "tools") that can be configured in the prompt
   * But also could put in there some other things ... like an external command that gets run for the tool
@@ -162,12 +173,6 @@ Draw some stuff on your screen, and then trigger the assistant by *touching/tapp
 * External stuff
   * Let it look things up
   * Let it send me stuff ... emails, slacks
-* Evaluation
-  * Create a set of screenshots for inputs
-  * Represent different use-cases
-  * Some of these, such as TODO-extraction, might have specific expectations for output or execution, but most of them won't
-  * Run through the system to get example output -- text, svg, actions
-  * Write a test suite to judge the results .... somewhat human powered? Separate VLM judge?
 * Conversation Mode
   * On a single screen, keep track of each version of the screen betweent turns
   * So first send would be the screen
@@ -181,7 +186,9 @@ Draw some stuff on your screen, and then trigger the assistant by *touching/tapp
   * Or could use the same color structure but a whole chain of messages?
   * Might be weird when we go to a new blank page though. It'd look like the new input erased everything
   * In general this would also make it easier to handle scrolling maybe
-* Run off of a network-local vLLM (like ollama)
+* Run off of a network-local VLM (like ollama)
+  * First attempt at using the OpenAI-API compatible ollama failed; the ollama LLAMA 3.2 vision model doesn't support tools
+  * Though Groq has a modified llama-3.2-vision that DOES have tools... but it isn't nearly as good as ChatGPT, Claude, or Gemini.
 
 ## References
 * Generally pulled resources from [Awesome reMarkable](https://github.com/reHackable/awesome-reMarkable)
@@ -190,6 +197,7 @@ Draw some stuff on your screen, and then trigger the assistant by *touching/tapp
 * Super cool SVG-to-png done with [resvg](https://github.com/RazrFalcon/resvg)
 * Make the keyboard input device even without a keyboard via [rM-input-devices](https://github.com/pl-semiotics/rM-input-devices)
 * Not quite the same, but I recently found [reMarkableAI](https://github.com/nickian/reMarkableAI) that does OCR→OpenAI→PDF→Device
+* Another reMarkable-LLM interface is [rMAI](https://github.com/StarNumber12046/rMAI). This one is a separate app (not trying to integrate in with simulated pen/keyboard input) and uses [replicate](https://replicate.com) as the model API service
 * I haven't adopted anything from it yet, but [Crazy Cow](https://github.com/machinelevel/sp425-crazy-cow) is a cool/crazy tool that turns text into pen strokes for the reMarkable1
 
 ## Development

@@ -63,13 +63,14 @@ for scenario in "${scenarios[@]}"; do
 
       ./target/release/ghostwriter \
         --input-png evaluations/$scenario/input.png \
-        --output-file $outdir/result.out \
-        --model-output-file $outdir/result.json \
-        --save-bitmap $outdir/result.png \
         --save-screenshot $outdir/input.png \
+        --model-output-file $outdir/result.json \
+        --output-file $outdir/result.out \
+        --save-bitmap $outdir/result.png \
         --no-draw \
         --no-draw-progress \
         --no-loop \
+        --no-trigger \
         $params
 
       # Create a merged image with the new part in red

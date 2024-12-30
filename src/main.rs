@@ -95,6 +95,10 @@ struct Args {
     #[arg(long)]
     no_loop: bool,
 
+    /// Disable waiting for trigger
+    #[arg(long)]
+    no_trigger: bool,
+
     /// Apply segmentation
     #[arg(long)]
     apply_segmentation: bool,
@@ -255,8 +259,8 @@ fn ghostwriter(args: &Args) -> Result<()> {
     );
 
     loop {
-        if let Some(input_png) = &args.input_png {
-            println!("Using input PNG file: {}", input_png);
+        if args.no_trigger {
+            println!("Skipping waiting for trigger");
         } else {
             println!("Waiting for trigger (hand-touch in the upper-right corner)...");
             lock!(touch).wait_for_trigger()?;

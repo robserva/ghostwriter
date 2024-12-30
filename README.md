@@ -232,7 +232,7 @@ mkdir -p evaluations/$evaluation_name
 mv tmp/* evaluations/$evaluation_name
 
 # Run an evaluation
-./target/release/ghostwriter --input-png evaluations/$evaluation_name/input.png --output-file tmp/result.out --model-output-file tmp/result.json --save-bitmap tmp/result.png --no-draw --no-draw-progress --no-loop claude-assist
+./target/release/ghostwriter --input-png evaluations/$evaluation_name/input.png --output-file tmp/result.out --model-output-file tmp/result.json --save-bitmap tmp/result.png --no-draw --no-draw-progress --no-loop --no-trigger claude-assist
 
 # Layer the input and output
 convert \( evaluations/$evaluation_name/input.png -colorspace RGB \) \( tmp/result.png -type truecolormatte -transparent white -fill red -colorize 100 \) -compose Over -composite tmp/merged-output.png

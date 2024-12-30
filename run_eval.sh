@@ -11,16 +11,22 @@ results="$outdir_base/results.md"
 
 scenarios=($(ls evaluations))
 
-attempt_count=3
+attempt_count=1
 
 declare -A test_case_params
 
-test_case_params["claude_sonnet_latest_no_seg"]="--engine anthropic --model claude-3-5-sonnet-latest"
-test_case_params["claude_sonnet_latest_with_seg"]="--apply-segmentation --engine anthropic --model claude-3-5-sonnet-latest"
-test_case_params["gpt-4o-mini_no_seg"]="--engine openai --model gpt-4o-mini"
-test_case_params["gpt-4o_with_seg"]="--apply-segmentation --engine openai --model gpt-4o-mini"
-test_case_params["gpt-4o-mini_no_seg"]="--engine openai --model gpt-4o"
-test_case_params["gpt-4o_with_seg"]="--apply-segmentation --engine openai --model gpt-4o"
+test_case_params["claude_sonnet_latest_no_seg"]="--model claude-3-5-sonnet-latest"
+test_case_params["claude_sonnet_latest_with_seg"]="--apply-segmentation --model claude-3-5-sonnet-latest"
+test_case_params["gpt-4o-mini_no_seg"]="--model gpt-4o-mini"
+test_case_params["gpt-4o_with_seg"]="--apply-segmentation --model gpt-4o-mini"
+test_case_params["gpt-4o-mini_no_seg"]="--model gpt-4o"
+test_case_params["gpt-4o_with_seg"]="--apply-segmentation --model gpt-4o"
+test_case_params["gemini-2-flash_no_seg"]="--model gemini-2.0-flash-exp"
+test_case_params["gemini-2-flash_with_seg"]="--apply-segmentation --model gemini-2.0-flash-exp"
+# test_case_params["gemini-1206-flash_no_seg"]="--model gemini-exp-1206"
+# test_case_params["gemini-1206-flash_with_seg"]="--apply-segmentation --model gemini-exp-1206"
+test_case_params["gemini-1.5-pro_no_seg"]="--model gemini-1.5-pro"
+test_case_params["gemini-1.5-pro_with_seg"]="--apply-segmentation --model gemini-1.5-pro"
 
 echo "# Ghostwriter evaluation results $datetime" > $results
 echo "" >> $results

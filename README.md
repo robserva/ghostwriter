@@ -3,6 +3,8 @@
 
 <img src="docs/simple-chihuahua.jpg" width="300"><img src="docs/chihuahua-logo.png" width="300">
 
+<b><i>I wrote the handwritten prompt, GPT-4o drew the Chihuahua!!!</i></b>
+
 <img src="docs/example-kansas.gif">
 
 ## Setup/Installation
@@ -135,7 +137,7 @@ Draw some stuff on your screen, and then trigger the assistant by *touching/tapp
   * So now to use [Groq](https://groq.com/): `./ghostwriter -m llama-3.2-90b-vision-preview --engine-api-key $GROQ_API_KEY --engine openai --engine-base-url https://api.groq.com/openai`
   * ... but so far Llama 3.2 90b vision is still quite bad with this interface
   * I turned off a bunch of debugging. Now I'll need to go back and introduce log-level or something
-  * BONUS: And now I've added Google Gemini! Try `-m gemini-2.0-flash-exp` with your `GEMINI_API_KEY` set!<br /><img src="docs/gemini_hello_chihuahua.png" width=200 border=1>
+  * BONUS: And now I've added Google Gemini! Try `-m gemini-2.0-flash-exp` with your `GOOGLE_API_KEY` set!<br /><img src="docs/gemini_hello_chihuahua.png" width=200 border=1>
 * **2024-12-28** -- Usability
   * I used a powered usb-hub to get an external keyboard plugged in, trying to see what sort of keyboard shortcuts we might have
   * That helped to get a further sense for where the keyboard input goes

@@ -11,7 +11,7 @@ results="$outdir_base/results.md"
 
 scenarios=($(ls evaluations))
 
-attempt_count=1
+attempt_count=3
 
 declare -A test_case_params
 
@@ -83,7 +83,7 @@ for scenario in "${scenarios[@]}"; do
       fi
 
       if [ -f $outdir/merged-output.png ]; then
-        echo "<img src='../../$outdir/merged-output.png' border=1 width=200 />" >> $results
+        echo -n "<img src='../../$outdir/merged-output.png' border=1 width=200 />" >> $results
       else
         echo "<img src='../../evaluations/$scenario/input.png' border=1 width=200 />" >> $results
         echo "" >> $results
@@ -92,9 +92,13 @@ for scenario in "${scenarios[@]}"; do
         echo "" >> $results
         echo '```' >> $results
       fi
-      echo "" >> $results
+
+      echo "Sleeping for 10 seconds to avoid rate limiting"
+      sleep 10
 
     done
+
+    echo "" >> $results
 
   done
 done

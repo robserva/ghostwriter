@@ -19,7 +19,7 @@ jobs:
           command: build
           args: --target aarch64-unknown-linux-gnu --release
       - name: Upload Binary
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ghostwriter
           path: target/aarch64-unknown-linux-gnu/release/ghostwriter
